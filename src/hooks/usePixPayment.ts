@@ -101,21 +101,30 @@ export const usePixPayment = (): UsePixPaymentReturn => {
     setIsPolling(true);
     onPaidCallbackRef.current = onPaid;
 
-    const poll = async () => {
+    const pollOnce = async (): Promise<PixStatus> => {
       const currentStatus = await checkPaymentStatus(transactionId, amount);
+
       if (currentStatus === "COMPLETED") {
         stopPolling();
         onPaidCallbackRef.current?.();
-      } else if (currentStatus === "FAILED" || currentStatus === "RETIDO") {
-        stopPolling();
+        return currentStatus;
       }
+
+      if (currentStatus === "FAILED" || currentStatus === "RETIDO") {
+        stopPolling();
+        return currentStatus;
+      }
+
+      return currentStatus;
     };
 
-    // Check immediately
-    poll();
-
-    // Then every 10 seconds
-    pollingRef.current = setInterval(poll, 10000);
+    // Check immediately; only start interval if still pending
+    pollOnce().then((firstStatus) => {
+      if (firstStatus !== "PENDING") return;
+      pollingRef.current = setInterval(() => {
+        pollOnce();
+      }, 10000);
+    });
   }, [checkPaymentStatus, stopPolling]);
 
   useEffect(() => {
