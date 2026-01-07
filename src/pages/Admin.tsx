@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useProducts, ProductInsert } from "@/hooks/useProducts";
 import { useAdminOrders, AdminOrder } from "@/hooks/useAdminOrders";
+import { useAdminUsers } from "@/hooks/useAdminUsers";
 import { useProductStock } from "@/hooks/useProductStock";
 import { OrderStatus } from "@/hooks/useOrders";
 import Header from "@/components/Header";
@@ -18,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -72,6 +74,9 @@ import {
   User,
   Gift,
   Boxes,
+  Users,
+  Mail,
+  Phone,
 } from "lucide-react";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: any; color: string }> = {
@@ -88,6 +93,7 @@ const Admin = () => {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct, toggleProductStatus } = useProducts();
   const { orders, loading: ordersLoading, updateOrderStatus, updateOrderDeliverable, refreshOrders } = useAdminOrders();
+  const { users, loading: usersLoading, refreshUsers } = useAdminUsers();
   const { stockByProduct, fetchStockForProduct, getAvailableCount } = useProductStock();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -189,12 +195,12 @@ const Admin = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold">Painel Admin</h1>
-            <p className="text-muted-foreground">Gerencie produtos e pedidos</p>
+            <p className="text-muted-foreground">Gerencie produtos, pedidos e usuários</p>
           </div>
         </div>
 
         <Tabs defaultValue="products" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="products" className="gap-2">
               <Package className="h-4 w-4" />
               Produtos
@@ -202,6 +208,10 @@ const Admin = () => {
             <TabsTrigger value="orders" className="gap-2">
               <ShoppingCart className="h-4 w-4" />
               Pedidos
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-2">
+              <Users className="h-4 w-4" />
+              Usuários
             </TabsTrigger>
           </TabsList>
 
@@ -493,16 +503,20 @@ const Admin = () => {
                                             <p className="font-medium">{order.user_profile?.display_name || "N/A"}</p>
                                           </div>
                                           <div>
+                                            <span className="text-muted-foreground">Email:</span>
+                                            <p className="font-medium">{order.user_email || "N/A"}</p>
+                                          </div>
+                                          <div>
                                             <span className="text-muted-foreground">Telefone:</span>
                                             <p className="font-medium">{order.user_profile?.phone || "N/A"}</p>
                                           </div>
                                           <div>
-                                            <span className="text-muted-foreground">ID do Usuário:</span>
-                                            <p className="font-mono text-xs">{order.user_id.slice(0, 12)}...</p>
-                                          </div>
-                                          <div>
                                             <span className="text-muted-foreground">PIX Transaction:</span>
                                             <p className="font-mono text-xs">{order.pix_transaction_id || "N/A"}</p>
+                                          </div>
+                                          <div className="col-span-2">
+                                            <span className="text-muted-foreground">ID do Usuário:</span>
+                                            <p className="font-mono text-xs">{order.user_id}</p>
                                           </div>
                                         </div>
                                       </div>
@@ -598,6 +612,101 @@ const Admin = () => {
                         </Card>
                       );
                     })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Users Tab */}
+          <TabsContent value="users">
+            <Card className="border-border/50 bg-card/50 backdrop-blur">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Usuários</CardTitle>
+                  <CardDescription>Visualize todos os usuários cadastrados</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={refreshUsers} className="gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Atualizar
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {usersLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : users.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum usuário encontrado.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12"></TableHead>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Telefone</TableHead>
+                          <TableHead>Cadastro</TableHead>
+                          <TableHead>Último acesso</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((userItem) => (
+                          <TableRow key={userItem.id}>
+                            <TableCell>
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={userItem.avatar_url || undefined} />
+                                <AvatarFallback className="bg-primary/20 text-primary">
+                                  {userItem.display_name?.charAt(0)?.toUpperCase() || userItem.email?.charAt(0)?.toUpperCase() || "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TableCell>
+                            <TableCell>
+                              <p className="font-medium">{userItem.display_name || "Sem nome"}</p>
+                              <p className="text-xs text-muted-foreground font-mono">{userItem.id.slice(0, 8)}...</p>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-sm">{userItem.email || "N/A"}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-sm">{userItem.phone || "N/A"}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-muted-foreground">
+                                {new Date(userItem.created_at).toLocaleDateString("pt-BR", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-muted-foreground">
+                                {userItem.last_sign_in_at
+                                  ? new Date(userItem.last_sign_in_at).toLocaleDateString("pt-BR", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "Nunca"}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </CardContent>
