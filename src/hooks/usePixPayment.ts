@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-
-const PIX_API_BASE = "https://mlanonovo.shop/apipix";
-const CLIENT_ID = "law_3E33F642";
+import { supabase } from "@/integrations/supabase/client";
 
 export type PixStatus = "PENDING" | "COMPLETED" | "FAILED" | "RETIDO";
 
@@ -33,18 +31,17 @@ export const usePixPayment = (): UsePixPaymentReturn => {
   const generatePayment = useCallback(async (amount: number): Promise<PixPaymentData | null> => {
     setIsGenerating(true);
     try {
-      const response = await fetch(`${PIX_API_BASE}/gerar-pagamento.php`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke("pix-proxy", {
+        body: {
+          action: "generate",
           amount,
-          client_id: CLIENT_ID,
-        }),
+        },
       });
 
-      const data = await response.json();
+      if (error) {
+        console.error("Erro ao gerar PIX:", error);
+        return null;
+      }
 
       if (data.qrCodeResponse) {
         const pixData: PixPaymentData = {
@@ -69,18 +66,19 @@ export const usePixPayment = (): UsePixPaymentReturn => {
 
   const checkPaymentStatus = useCallback(async (transactionId: string, amount: number): Promise<PixStatus> => {
     try {
-      const response = await fetch(`${PIX_API_BASE}/verificar.php?id=${transactionId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke("pix-proxy", {
+        body: {
+          action: "verify",
+          transactionId,
           amount,
-          client_id: CLIENT_ID,
-        }),
+        },
       });
 
-      const data = await response.json();
+      if (error) {
+        console.error("Erro ao verificar status:", error);
+        return "PENDING";
+      }
+
       const newStatus = data.status as PixStatus;
       setStatus(newStatus);
       return newStatus;
