@@ -1,10 +1,13 @@
-import { ShoppingCart, LogIn, Headphones } from "lucide-react";
+import { ShoppingCart, LogIn, Headphones, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Header = () => {
   const { totalItems, setIsCartOpen } = useCart();
+  const { user, profile } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -19,10 +22,28 @@ const Header = () => {
         </Link>
 
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <LogIn className="h-4 w-4" />
-            Entrar
-          </Button>
+          {user ? (
+            <Link to="/conta">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={profile?.avatar_url || undefined} />
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                    {profile?.display_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden sm:inline">
+                  {profile?.display_name || "Minha Conta"}
+                </span>
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/auth">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <LogIn className="h-4 w-4" />
+                Entrar
+              </Button>
+            </Link>
+          )}
           <Button
             variant="cart"
             size="sm"
