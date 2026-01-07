@@ -3,7 +3,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useProducts, ProductInsert } from "@/hooks/useProducts";
-import { useOrders } from "@/hooks/useOrders";
+import { useAdminOrders, AdminOrder } from "@/hooks/useAdminOrders";
+import { OrderStatus } from "@/hooks/useOrders";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -52,15 +60,35 @@ import {
   Eye,
   EyeOff,
   Shield,
+  Clock,
+  CheckCircle,
+  Truck,
+  XCircle,
+  Send,
+  RefreshCw,
+  User,
+  Gift,
 } from "lucide-react";
+
+const statusConfig: Record<OrderStatus, { label: string; icon: any; color: string }> = {
+  pending: { label: "Aguardando", icon: Clock, color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
+  approved: { label: "Aprovado", icon: CheckCircle, color: "bg-green-500/20 text-green-400 border-green-500/30" },
+  processing: { label: "Processando", icon: Package, color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+  shipped: { label: "Enviado", icon: Truck, color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
+  delivered: { label: "Entregue", icon: Gift, color: "bg-green-500/20 text-green-400 border-green-500/30" },
+  cancelled: { label: "Cancelado", icon: XCircle, color: "bg-red-500/20 text-red-400 border-red-500/30" },
+};
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct, toggleProductStatus } = useProducts();
+  const { orders, loading: ordersLoading, updateOrderStatus, updateOrderDeliverable, refreshOrders } = useAdminOrders();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
+  const [deliverableInput, setDeliverableInput] = useState("");
   const [formData, setFormData] = useState<ProductInsert>({
     name: "",
     description: "",
@@ -411,14 +439,223 @@ const Admin = () => {
 
           <TabsContent value="orders">
             <Card className="border-border/50 bg-card/50 backdrop-blur">
-              <CardHeader>
-                <CardTitle>Pedidos</CardTitle>
-                <CardDescription>Visualize todos os pedidos</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Pedidos</CardTitle>
+                  <CardDescription>Gerencie todos os pedidos</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={refreshOrders} className="gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Atualizar
+                </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-center py-8 text-muted-foreground">
-                  Em breve: gerenciamento completo de pedidos
-                </p>
+                {ordersLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum pedido encontrado.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orders.map((order) => {
+                      const status = statusConfig[order.status];
+                      const StatusIcon = status.icon;
+                      
+                      return (
+                        <Card key={order.id} className="border-border/30 bg-muted/20">
+                          <CardHeader className="pb-2">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-medium">Pedido #{order.id.slice(0, 8)}</p>
+                                  <Badge variant="outline" className={status.color}>
+                                    <StatusIcon className="h-3 w-3 mr-1" />
+                                    {status.label}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    {order.user_profile?.display_name || "Sem nome"}
+                                  </span>
+                                  <span>
+                                    {new Date(order.created_at).toLocaleDateString("pt-BR", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
+                                  <span className="font-semibold text-primary">
+                                    R$ {Number(order.total).toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  value={order.status}
+                                  onValueChange={(value) => updateOrderStatus(order.id, value as OrderStatus)}
+                                >
+                                  <SelectTrigger className="w-40">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Aguardando</SelectItem>
+                                    <SelectItem value="approved">Aprovado</SelectItem>
+                                    <SelectItem value="processing">Processando</SelectItem>
+                                    <SelectItem value="shipped">Enviado</SelectItem>
+                                    <SelectItem value="delivered">Entregue</SelectItem>
+                                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => {
+                                        setSelectedOrder(order);
+                                        setDeliverableInput(order.deliverable || "");
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                                    <DialogHeader>
+                                      <DialogTitle>Detalhes do Pedido #{order.id.slice(0, 8)}</DialogTitle>
+                                      <DialogDescription>
+                                        Gerencie o pedido e adicione o entregável
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    
+                                    <div className="space-y-6 py-4">
+                                      {/* Customer Info */}
+                                      <div className="p-4 rounded-lg bg-muted/30 border border-border">
+                                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                          <User className="h-4 w-4 text-primary" />
+                                          Informações do Cliente
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-2 text-sm">
+                                          <div>
+                                            <span className="text-muted-foreground">Nome:</span>
+                                            <p className="font-medium">{order.user_profile?.display_name || "N/A"}</p>
+                                          </div>
+                                          <div>
+                                            <span className="text-muted-foreground">Telefone:</span>
+                                            <p className="font-medium">{order.user_profile?.phone || "N/A"}</p>
+                                          </div>
+                                          <div>
+                                            <span className="text-muted-foreground">ID do Usuário:</span>
+                                            <p className="font-mono text-xs">{order.user_id.slice(0, 12)}...</p>
+                                          </div>
+                                          <div>
+                                            <span className="text-muted-foreground">PIX Transaction:</span>
+                                            <p className="font-mono text-xs">{order.pix_transaction_id || "N/A"}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Order Items */}
+                                      <div>
+                                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                          <Package className="h-4 w-4 text-primary" />
+                                          Itens do Pedido
+                                        </h4>
+                                        <div className="space-y-2">
+                                          {order.items?.map((item) => (
+                                            <div key={item.id} className="flex items-center gap-3 p-2 rounded bg-muted/20">
+                                              <img
+                                                src={item.product_image}
+                                                alt={item.product_name}
+                                                className="w-12 h-12 rounded object-cover"
+                                              />
+                                              <div className="flex-1">
+                                                <p className="font-medium text-sm">{item.product_name}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  {item.quantity}x R$ {Number(item.price).toFixed(2)}
+                                                </p>
+                                              </div>
+                                              <p className="font-semibold text-sm">
+                                                R$ {(item.quantity * Number(item.price)).toFixed(2)}
+                                              </p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="mt-2 pt-2 border-t border-border flex justify-between">
+                                          <span className="font-semibold">Total:</span>
+                                          <span className="font-bold text-primary">R$ {Number(order.total).toFixed(2)}</span>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Deliverable */}
+                                      <div>
+                                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                          <Gift className="h-4 w-4 text-primary" />
+                                          Entregável (enviado ao cliente quando pago)
+                                        </h4>
+                                        <Textarea
+                                          value={deliverableInput}
+                                          onChange={(e) => setDeliverableInput(e.target.value)}
+                                          placeholder="Ex: PRODUTO ENTREGUE! email: cliente@email.com senha: 123456"
+                                          className="min-h-24"
+                                        />
+                                        <Button
+                                          className="mt-2 gap-2"
+                                          onClick={() => {
+                                            if (deliverableInput.trim()) {
+                                              updateOrderDeliverable(order.id, deliverableInput);
+                                            }
+                                          }}
+                                          disabled={!deliverableInput.trim()}
+                                        >
+                                          <Send className="h-4 w-4" />
+                                          Salvar e Marcar como Entregue
+                                        </Button>
+                                        
+                                        {order.deliverable && (
+                                          <div className="mt-4 p-3 rounded bg-green-500/10 border border-green-500/30">
+                                            <p className="text-xs text-muted-foreground mb-1">Entregável atual:</p>
+                                            <p className="font-mono text-sm">{order.deliverable}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          
+                          {/* Quick view of items */}
+                          <CardContent className="pt-0">
+                            <div className="flex flex-wrap gap-2">
+                              {order.items?.slice(0, 3).map((item) => (
+                                <div key={item.id} className="flex items-center gap-2 px-2 py-1 rounded bg-muted/30 text-xs">
+                                  <img src={item.product_image} alt="" className="w-6 h-6 rounded object-cover" />
+                                  <span className="truncate max-w-32">{item.product_name}</span>
+                                  <span className="text-muted-foreground">x{item.quantity}</span>
+                                </div>
+                              ))}
+                              {(order.items?.length || 0) > 3 && (
+                                <span className="text-xs text-muted-foreground self-center">
+                                  +{(order.items?.length || 0) - 3} mais
+                                </span>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
