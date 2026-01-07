@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useOrders } from "@/hooks/useOrders";
+import { usePixPayment } from "@/hooks/usePixPayment";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -25,25 +26,118 @@ const PAYMENT_TIME_MINUTES = 15;
 const Checkout = () => {
   const { user, loading: authLoading } = useAuth();
   const { items: cartItems, totalPrice, clearCart } = useCart();
-  const { createOrder } = useOrders();
+  const { createOrder, updateOrderStatus } = useOrders();
+  const { 
+    generatePayment, 
+    isGenerating, 
+    paymentData, 
+    status: pixStatus,
+    isPolling,
+    startPolling,
+    stopPolling
+  } = usePixPayment();
   const navigate = useNavigate();
   
   const [timeLeft, setTimeLeft] = useState(PAYMENT_TIME_MINUTES * 60);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Generate a fake PIX code for demonstration
-  const pixCode = `00020126580014br.gov.bcb.pix0136${user?.id?.slice(0, 36) || "00000000-0000-0000-0000-000000000000"}5204000053039865404${totalPrice.toFixed(2)}5802BR5925LOJA GAMES6009SAO PAULO62070503***6304`;
+  const discountedTotal = totalPrice * 0.95;
 
+  // Generate PIX payment on mount
   useEffect(() => {
-    if (timeLeft <= 0) {
-      toast({
-        title: "Tempo esgotado!",
-        description: "O tempo para pagamento expirou. Por favor, tente novamente.",
-        variant: "destructive",
-      });
+    const initPayment = async () => {
+      if (cartItems.length > 0 && user && !paymentData) {
+        setIsInitializing(true);
+        const result = await generatePayment(discountedTotal);
+        if (!result) {
+          toast({
+            title: "Erro ao gerar PIX",
+            description: "Não foi possível gerar o pagamento. Tente novamente.",
+            variant: "destructive",
+          });
+          navigate("/conta");
+        }
+        setIsInitializing(false);
+      } else {
+        setIsInitializing(false);
+      }
+    };
+    
+    initPayment();
+  }, []);
+
+  // Handle payment status change
+  const handlePaymentConfirmed = useCallback(async () => {
+    if (!currentOrderId) return;
+    
+    const deliverable = "PRODUTO ENTREGUE! email: tst@gmail.com senha: tst@gmail.com";
+    
+    await updateOrderStatus(currentOrderId, "delivered", deliverable);
+    
+    setOrderCreated(true);
+    toast({
+      title: "Pagamento confirmado! 🎉",
+      description: "Seu pedido foi pago com sucesso.",
+    });
+    
+    setTimeout(() => {
       navigate("/conta");
+    }, 3000);
+  }, [currentOrderId, updateOrderStatus, navigate]);
+
+  // Start polling when order is created
+  useEffect(() => {
+    if (currentOrderId && paymentData && !orderCreated) {
+      startPolling(paymentData.transactionId, paymentData.amount, handlePaymentConfirmed);
+    }
+    
+    return () => {
+      stopPolling();
+    };
+  }, [currentOrderId, paymentData, orderCreated, startPolling, stopPolling, handlePaymentConfirmed]);
+
+  // Create order when payment is generated
+  useEffect(() => {
+    const createPendingOrder = async () => {
+      if (paymentData && !currentOrderId && cartItems.length > 0) {
+        const expiresAt = new Date(Date.now() + PAYMENT_TIME_MINUTES * 60 * 1000);
+        
+        const { error, order } = await createOrder({
+          pixTransactionId: paymentData.transactionId,
+          pixQrcode: paymentData.qrcode,
+          pixExpiresAt: expiresAt.toISOString(),
+        });
+        
+        if (error) {
+          toast({
+            title: "Erro ao criar pedido",
+            description: error.message,
+            variant: "destructive",
+          });
+          navigate("/conta");
+        } else if (order) {
+          setCurrentOrderId(order.id);
+        }
+      }
+    };
+    
+    createPendingOrder();
+  }, [paymentData]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (timeLeft <= 0 || orderCreated) {
+      if (timeLeft <= 0) {
+        toast({
+          title: "Tempo esgotado!",
+          description: "O tempo para pagamento expirou. Por favor, tente novamente.",
+          variant: "destructive",
+        });
+        navigate("/conta");
+      }
       return;
     }
 
@@ -52,7 +146,7 @@ const Checkout = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, navigate]);
+  }, [timeLeft, navigate, orderCreated]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -67,8 +161,10 @@ const Checkout = () => {
   };
 
   const handleCopyPix = async () => {
+    if (!paymentData?.qrcode) return;
+    
     try {
-      await navigator.clipboard.writeText(pixCode);
+      await navigator.clipboard.writeText(paymentData.qrcode);
       setCopied(true);
       toast({
         title: "Código copiado!",
@@ -84,34 +180,15 @@ const Checkout = () => {
     }
   };
 
-  const handleConfirmPayment = async () => {
-    setIsProcessing(true);
-    
-    const { error } = await createOrder();
-    
-    if (error) {
-      toast({
-        title: "Erro ao processar pedido",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsProcessing(false);
-    } else {
-      setOrderCreated(true);
-      toast({
-        title: "Pagamento confirmado! 🎉",
-        description: "Seu pedido foi realizado com sucesso.",
-      });
-      setTimeout(() => {
-        navigate("/conta");
-      }, 3000);
-    }
-  };
-
-  if (authLoading) {
+  if (authLoading || isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">
+            {isInitializing ? "Gerando pagamento PIX..." : "Carregando..."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -120,7 +197,7 @@ const Checkout = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (cartItems.length === 0 && !orderCreated) {
+  if (cartItems.length === 0 && !orderCreated && !currentOrderId) {
     return <Navigate to="/conta" replace />;
   }
 
@@ -137,7 +214,7 @@ const Checkout = () => {
               </div>
               <h2 className="text-3xl font-bold mb-2">Pagamento Confirmado!</h2>
               <p className="text-muted-foreground mb-6">
-                Seu pedido foi processado com sucesso. Você receberá atualizações sobre o status.
+                Seu pedido foi processado com sucesso. Confira os detalhes em "Meus Pedidos".
               </p>
               <p className="text-sm text-muted-foreground">
                 Redirecionando para sua conta...
@@ -164,6 +241,12 @@ const Checkout = () => {
             <p className="text-muted-foreground">
               Complete seu pagamento via PIX para confirmar o pedido
             </p>
+            {isPolling && (
+              <div className="mt-2 flex items-center justify-center gap-2 text-sm text-primary">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Aguardando confirmação do pagamento...
+              </div>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
@@ -195,43 +278,17 @@ const Checkout = () => {
                   <div className="relative group">
                     <div className="absolute -inset-4 bg-primary/20 blur-xl rounded-3xl opacity-50 group-hover:opacity-75 transition-opacity" />
                     <div className="relative bg-white p-4 rounded-2xl shadow-2xl">
-                      {/* Simulated QR Code using pattern */}
-                      <div className="w-48 h-48 bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
-                        <svg viewBox="0 0 100 100" className="w-full h-full">
-                          {/* QR Code pattern simulation */}
-                          {Array.from({ length: 10 }).map((_, row) =>
-                            Array.from({ length: 10 }).map((_, col) => {
-                              const isBlack = (row + col) % 2 === 0 || 
-                                (row < 3 && col < 3) || 
-                                (row < 3 && col > 6) || 
-                                (row > 6 && col < 3) ||
-                                Math.random() > 0.5;
-                              return (
-                                <rect
-                                  key={`${row}-${col}`}
-                                  x={col * 10}
-                                  y={row * 10}
-                                  width="10"
-                                  height="10"
-                                  fill={isBlack ? "#1a1a1a" : "#ffffff"}
-                                />
-                              );
-                            })
-                          )}
-                          {/* Position markers */}
-                          <rect x="0" y="0" width="30" height="30" fill="#1a1a1a" />
-                          <rect x="5" y="5" width="20" height="20" fill="#ffffff" />
-                          <rect x="10" y="10" width="10" height="10" fill="#1a1a1a" />
-                          
-                          <rect x="70" y="0" width="30" height="30" fill="#1a1a1a" />
-                          <rect x="75" y="5" width="20" height="20" fill="#ffffff" />
-                          <rect x="80" y="10" width="10" height="10" fill="#1a1a1a" />
-                          
-                          <rect x="0" y="70" width="30" height="30" fill="#1a1a1a" />
-                          <rect x="5" y="75" width="20" height="20" fill="#ffffff" />
-                          <rect x="10" y="80" width="10" height="10" fill="#1a1a1a" />
-                        </svg>
-                      </div>
+                      {paymentData?.qrcode ? (
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentData.qrcode)}`}
+                          alt="QR Code PIX"
+                          className="w-48 h-48 rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -248,9 +305,9 @@ const Checkout = () => {
                     <div className="absolute inset-0 bg-primary/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative flex items-center gap-3 p-4 bg-muted/50 rounded-xl border border-border hover:border-primary/50 transition-colors">
                       <div className="flex-1 font-mono text-xs break-all text-muted-foreground">
-                        {pixCode.slice(0, 50)}...
+                        {paymentData?.qrcode ? `${paymentData.qrcode.slice(0, 50)}...` : "Gerando código..."}
                       </div>
-                      <Button size="sm" variant={copied ? "default" : "outline"} className="shrink-0 gap-2">
+                      <Button size="sm" variant={copied ? "default" : "outline"} className="shrink-0 gap-2" disabled={!paymentData}>
                         {copied ? (
                           <>
                             <CheckCircle className="h-4 w-4" />
@@ -267,26 +324,22 @@ const Checkout = () => {
                   </div>
                 </div>
 
-                {/* Confirm Button */}
-                <Button 
-                  onClick={handleConfirmPayment}
-                  disabled={isProcessing}
-                  variant="glow"
-                  size="lg"
-                  className="w-full text-lg h-14"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-5 w-5 mr-2" />
-                      Confirmar Pagamento
-                    </>
-                  )}
-                </Button>
+                {/* Status indicator */}
+                <div className="bg-muted/30 rounded-xl p-4 border border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Status do pagamento:</span>
+                    <span className={`text-sm font-medium ${
+                      pixStatus === "COMPLETED" ? "text-green-500" : 
+                      pixStatus === "FAILED" || pixStatus === "RETIDO" ? "text-red-500" : 
+                      "text-yellow-500"
+                    }`}>
+                      {pixStatus === "COMPLETED" ? "Pago" : 
+                       pixStatus === "FAILED" ? "Falhou" : 
+                       pixStatus === "RETIDO" ? "Reembolsado" : 
+                       "Aguardando pagamento"}
+                    </span>
+                  </div>
+                </div>
 
                 {/* Trust badges */}
                 <div className="flex items-center justify-center gap-6 pt-2">
@@ -357,7 +410,7 @@ const Checkout = () => {
                     <span className="text-lg font-medium">Total</span>
                     <div className="text-right">
                       <span className="text-3xl font-bold text-gradient">
-                        R$ {(totalPrice * 0.95).toFixed(2).replace(".", ",")}
+                        R$ {discountedTotal.toFixed(2).replace(".", ",")}
                       </span>
                       <p className="text-xs text-muted-foreground">
                         à vista no PIX
@@ -373,8 +426,8 @@ const Checkout = () => {
                     Pagamento Instantâneo
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    O PIX é processado em segundos. Após a confirmação, seu pedido será 
-                    preparado imediatamente.
+                    O PIX é processado em segundos. Assim que confirmarmos o pagamento, 
+                    seu pedido será entregue automaticamente.
                   </p>
                 </div>
               </CardContent>

@@ -23,7 +23,17 @@ export interface Order {
   total: number;
   created_at: string;
   updated_at: string;
+  pix_transaction_id?: string | null;
+  pix_qrcode?: string | null;
+  pix_expires_at?: string | null;
+  deliverable?: string | null;
   items?: OrderItem[];
+}
+
+interface CreateOrderOptions {
+  pixTransactionId?: string;
+  pixQrcode?: string;
+  pixExpiresAt?: string;
 }
 
 export const useOrders = () => {
@@ -75,18 +85,24 @@ export const useOrders = () => {
     fetchOrders();
   }, [user]);
 
-  const createOrder = async () => {
+  const createOrder = async (options?: CreateOrderOptions) => {
     if (!user || cartItems.length === 0) {
       return { error: new Error("Carrinho vazio ou não autenticado") };
     }
 
-    // Create order
+    // Apply 5% discount for PIX
+    const discountedTotal = totalPrice * 0.95;
+
+    // Create order with PIX data
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
       .insert({
         user_id: user.id,
-        total: totalPrice,
+        total: discountedTotal,
         status: "pending" as OrderStatus,
+        pix_transaction_id: options?.pixTransactionId || null,
+        pix_qrcode: options?.pixQrcode || null,
+        pix_expires_at: options?.pixExpiresAt || null,
       })
       .select()
       .single();
@@ -118,10 +134,32 @@ export const useOrders = () => {
     return { error: null, order: orderData };
   };
 
+  const updateOrderStatus = async (orderId: string, status: OrderStatus, deliverable?: string) => {
+    const updateData: { status: OrderStatus; deliverable?: string } = { status };
+    
+    if (deliverable) {
+      updateData.deliverable = deliverable;
+    }
+
+    const { error } = await supabase
+      .from("orders")
+      .update(updateData)
+      .eq("id", orderId);
+
+    if (error) {
+      console.error("Erro ao atualizar pedido:", error);
+      return { error };
+    }
+
+    await fetchOrders();
+    return { error: null };
+  };
+
   return {
     orders,
     loading,
     createOrder,
+    updateOrderStatus,
     refreshOrders: fetchOrders,
   };
 };
