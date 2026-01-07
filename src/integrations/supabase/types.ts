@@ -58,7 +58,11 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
+          deliverable: string | null
           id: string
+          pix_expires_at: string | null
+          pix_qrcode: string | null
+          pix_transaction_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
           updated_at: string
@@ -66,7 +70,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deliverable?: string | null
           id?: string
+          pix_expires_at?: string | null
+          pix_qrcode?: string | null
+          pix_transaction_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total: number
           updated_at?: string
@@ -74,7 +82,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deliverable?: string | null
           id?: string
+          pix_expires_at?: string | null
+          pix_qrcode?: string | null
+          pix_transaction_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
           updated_at?: string
