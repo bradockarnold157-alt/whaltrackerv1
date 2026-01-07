@@ -19,14 +19,15 @@ import {
   ShoppingBag,
   Shield,
   Zap,
-  QrCode
+  QrCode,
+  AlertTriangle
 } from "lucide-react";
 
 const PAYMENT_TIME_MINUTES = 15;
 
 const Checkout = () => {
   const { user, loading: authLoading } = useAuth();
-  const { items: cartItems, totalPrice, clearCart } = useCart();
+  const { items: cartItems, totalPrice, clearCart, removeFromCart } = useCart();
   const { createOrder, updateOrderStatus } = useOrders();
   const { 
     generatePayment, 
@@ -40,6 +41,7 @@ const Checkout = () => {
   const navigate = useNavigate();
 
   const paymentHandledRef = useRef(false);
+  const stockValidatedRef = useRef(false);
   
   const [timeLeft, setTimeLeft] = useState(PAYMENT_TIME_MINUTES * 60);
   const [orderCreated, setOrderCreated] = useState(false);
@@ -48,6 +50,8 @@ const Checkout = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [checkoutItems, setCheckoutItems] = useState(cartItems);
   const [checkoutTotal, setCheckoutTotal] = useState(totalPrice);
+  const [stockError, setStockError] = useState<string | null>(null);
+  const [unavailableItems, setUnavailableItems] = useState<{name: string, requested: number, available: number}[]>([]);
 
   const discountedTotal = checkoutTotal * 0.95;
 
@@ -59,11 +63,55 @@ const Checkout = () => {
     }
   }, []);
 
-  // Generate PIX payment on mount
+  // Validate stock availability before generating payment
+  const validateStock = async (): Promise<boolean> => {
+    if (stockValidatedRef.current) return true;
+    
+    const unavailable: {name: string, requested: number, available: number}[] = [];
+    
+    for (const item of checkoutItems) {
+      const { data: stockCount, error } = await supabase.rpc("get_available_stock_count", {
+        p_product_id: item.id,
+      });
+      
+      if (error) {
+        console.error("Error checking stock for product:", item.id, error);
+        continue;
+      }
+      
+      const available = stockCount ?? 0;
+      if (available < item.quantity) {
+        unavailable.push({
+          name: item.name,
+          requested: item.quantity,
+          available: available
+        });
+      }
+    }
+    
+    if (unavailable.length > 0) {
+      setUnavailableItems(unavailable);
+      setStockError("Alguns itens não possuem estoque suficiente");
+      return false;
+    }
+    
+    stockValidatedRef.current = true;
+    return true;
+  };
+
+  // Generate PIX payment on mount (after stock validation)
   useEffect(() => {
     const initPayment = async () => {
       if (checkoutItems.length > 0 && user && !paymentData) {
         setIsInitializing(true);
+        
+        // First validate stock
+        const stockValid = await validateStock();
+        if (!stockValid) {
+          setIsInitializing(false);
+          return;
+        }
+        
         const result = await generatePayment(discountedTotal);
         if (!result) {
           toast({
@@ -303,6 +351,69 @@ const Checkout = () => {
 
   if (checkoutItems.length === 0 && !orderCreated && !currentOrderId) {
     return <Navigate to="/conta" replace />;
+  }
+
+  // Show stock error screen
+  if (stockError && unavailableItems.length > 0) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 container py-8 flex items-center justify-center">
+          <Card className="max-w-md w-full border-destructive/50 bg-card/50 backdrop-blur text-center">
+            <CardContent className="pt-12 pb-8">
+              <div className="relative inline-block mb-6">
+                <div className="absolute inset-0 bg-destructive/30 blur-2xl rounded-full animate-pulse" />
+                <AlertTriangle className="relative h-24 w-24 text-destructive mx-auto" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Estoque Insuficiente</h2>
+              <p className="text-muted-foreground mb-6">
+                Alguns itens do seu carrinho não possuem estoque suficiente. 
+                Outro cliente pode ter finalizado a compra antes de você.
+              </p>
+              
+              <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
+                {unavailableItems.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center py-2 border-b border-border last:border-0">
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {item.available === 0 
+                        ? "Sem estoque" 
+                        : `Disponível: ${item.available} (pedido: ${item.requested})`
+                      }
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <Button 
+                  onClick={() => {
+                    // Remove unavailable items or adjust quantities
+                    unavailableItems.forEach(item => {
+                      const cartItem = checkoutItems.find(ci => ci.name === item.name);
+                      if (cartItem) {
+                        removeFromCart(cartItem.id);
+                      }
+                    });
+                    navigate("/");
+                  }}
+                  variant="outline"
+                >
+                  Remover itens e voltar
+                </Button>
+                <Button 
+                  onClick={() => navigate("/")}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Voltar para a loja
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   if (orderCreated) {
