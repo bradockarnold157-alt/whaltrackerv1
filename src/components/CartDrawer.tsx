@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useStockAvailability } from "@/hooks/useStockAvailability";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -22,6 +24,18 @@ const CartDrawer = () => {
     totalPrice,
     clearCart,
   } = useCart();
+
+  const productIds = items.map((item) => item.id);
+  const { getStockCount, loading: stockLoading } = useStockAvailability(productIds);
+
+  const handleIncreaseQuantity = (productId: number, currentQuantity: number) => {
+    const availableStock = getStockCount(productId);
+    if (currentQuantity >= availableStock) {
+      toast.error(`Apenas ${availableStock} unidade(s) disponível(is) em estoque`);
+      return;
+    }
+    updateQuantity(productId, currentQuantity + 1);
+  };
 
   return (
     <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
@@ -76,7 +90,8 @@ const CartDrawer = () => {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => handleIncreaseQuantity(item.id, item.quantity)}
+                          disabled={stockLoading || item.quantity >= getStockCount(item.id)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
