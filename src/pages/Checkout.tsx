@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useOrders } from "@/hooks/useOrders";
 import { usePixPayment } from "@/hooks/usePixPayment";
+import { useProductStock } from "@/hooks/useProductStock";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const Checkout = () => {
     startPolling,
     stopPolling
   } = usePixPayment();
+  const { assignRandomStock } = useProductStock();
   const navigate = useNavigate();
   
   const [timeLeft, setTimeLeft] = useState(PAYMENT_TIME_MINUTES * 60);
@@ -85,7 +87,21 @@ const Checkout = () => {
   const handlePaymentConfirmed = useCallback(async () => {
     if (!currentOrderId) return;
     
-    const deliverable = "PRODUTO ENTREGUE! email: tst@gmail.com senha: tst@gmail.com";
+    // Assign stock credentials for each item in the order
+    const deliverables: string[] = [];
+    
+    for (const item of checkoutItems) {
+      for (let i = 0; i < item.quantity; i++) {
+        const credential = await assignRandomStock(item.id, currentOrderId);
+        if (credential) {
+          deliverables.push(`${item.name}: ${credential}`);
+        } else {
+          deliverables.push(`${item.name}: Estoque indisponível - entre em contato`);
+        }
+      }
+    }
+    
+    const deliverable = deliverables.join("\n");
     
     await updateOrderStatus(currentOrderId, "delivered", deliverable);
     
@@ -98,7 +114,7 @@ const Checkout = () => {
     setTimeout(() => {
       navigate("/conta");
     }, 3000);
-  }, [currentOrderId, updateOrderStatus, navigate]);
+  }, [currentOrderId, checkoutItems, assignRandomStock, updateOrderStatus, navigate]);
 
   // Start polling when order is created
   useEffect(() => {
