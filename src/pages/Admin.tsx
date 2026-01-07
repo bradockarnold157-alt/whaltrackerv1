@@ -110,6 +110,8 @@ const Admin = () => {
     category: "",
     badge: "",
     is_active: true,
+    rating: 5,
+    reviews_count: 0,
   });
 
   const resetForm = () => {
@@ -122,6 +124,8 @@ const Admin = () => {
       category: "",
       badge: "",
       is_active: true,
+      rating: 5,
+      reviews_count: 0,
     });
     setEditingProduct(null);
   };
@@ -164,6 +168,8 @@ const Admin = () => {
       category: product.category,
       badge: product.badge || "",
       is_active: product.is_active,
+      rating: product.rating || 5,
+      reviews_count: product.reviews_count || 0,
     });
     setEditingProduct(product.id);
   };

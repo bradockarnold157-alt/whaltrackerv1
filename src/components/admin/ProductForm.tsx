@@ -4,7 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductInsert } from "@/hooks/useProducts";
+import { Star } from "lucide-react";
 
 interface ProductFormProps {
   formData: ProductInsert;
@@ -12,6 +14,19 @@ interface ProductFormProps {
   onSubmit: () => void;
   submitLabel: string;
 }
+
+const RATING_OPTIONS = [
+  { value: "0.5", label: "0.5" },
+  { value: "1", label: "1.0" },
+  { value: "1.5", label: "1.5" },
+  { value: "2", label: "2.0" },
+  { value: "2.5", label: "2.5" },
+  { value: "3", label: "3.0" },
+  { value: "3.5", label: "3.5" },
+  { value: "4", label: "4.0" },
+  { value: "4.5", label: "4.5" },
+  { value: "5", label: "5.0" },
+];
 
 const ProductForm = ({ formData, setFormData, onSubmit, submitLabel }: ProductFormProps) => (
   <div className="grid gap-4 py-4">
@@ -81,6 +96,40 @@ const ProductForm = ({ formData, setFormData, onSubmit, submitLabel }: ProductFo
           value={formData.badge || ""}
           onChange={(e) => setFormData((prev) => ({ ...prev, badge: e.target.value }))}
           placeholder="Ex: Novo, -30%"
+        />
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-2">
+        <Label className="flex items-center gap-1">
+          <Star className="h-4 w-4 text-yellow-400" />
+          Avaliação (Estrelas)
+        </Label>
+        <Select
+          value={String(formData.rating || 5)}
+          onValueChange={(value) => setFormData((prev) => ({ ...prev, rating: parseFloat(value) }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione a avaliação" />
+          </SelectTrigger>
+          <SelectContent>
+            {RATING_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label} ⭐
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="reviews_count">Quantidade de Avaliações</Label>
+        <Input
+          id="reviews_count"
+          type="number"
+          min="0"
+          value={formData.reviews_count || 0}
+          onChange={(e) => setFormData((prev) => ({ ...prev, reviews_count: parseInt(e.target.value) || 0 }))}
+          placeholder="Ex: 150"
         />
       </div>
     </div>

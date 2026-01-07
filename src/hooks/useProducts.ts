@@ -12,6 +12,8 @@ export interface Product {
   category: string;
   badge: string | null;
   is_active: boolean;
+  rating: number | null;
+  reviews_count: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +27,8 @@ export interface ProductInsert {
   category: string;
   badge?: string;
   is_active?: boolean;
+  rating?: number;
+  reviews_count?: number;
 }
 
 // Hook for public product listing
