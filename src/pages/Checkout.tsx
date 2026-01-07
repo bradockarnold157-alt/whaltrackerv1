@@ -353,8 +353,59 @@ const Checkout = () => {
     return <Navigate to="/conta" replace />;
   }
 
+  // Handle removing unavailable items and continuing checkout
+  const handleRemoveUnavailableAndContinue = () => {
+    // Get items that ARE available (not in unavailableItems or have partial stock)
+    const availableCheckoutItems = checkoutItems.filter(item => {
+      const unavailable = unavailableItems.find(ui => ui.name === item.name);
+      return !unavailable || unavailable.available > 0;
+    }).map(item => {
+      const unavailable = unavailableItems.find(ui => ui.name === item.name);
+      if (unavailable && unavailable.available > 0) {
+        // Reduce quantity to available stock
+        return { ...item, quantity: unavailable.available };
+      }
+      return item;
+    });
+
+    // Remove all unavailable items from cart
+    unavailableItems.forEach(item => {
+      const cartItem = checkoutItems.find(ci => ci.name === item.name);
+      if (cartItem) {
+        if (item.available === 0) {
+          removeFromCart(cartItem.id);
+        }
+      }
+    });
+
+    if (availableCheckoutItems.length === 0) {
+      toast({
+        title: "Carrinho vazio",
+        description: "Todos os itens estavam indisponíveis.",
+        variant: "destructive",
+      });
+      navigate("/");
+      return;
+    }
+
+    // Reset state and continue with available items
+    const newTotal = availableCheckoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    setCheckoutItems(availableCheckoutItems);
+    setCheckoutTotal(newTotal);
+    setStockError(null);
+    setUnavailableItems([]);
+    stockValidatedRef.current = true; // Mark as validated since we adjusted quantities
+  };
+
   // Show stock error screen
   if (stockError && unavailableItems.length > 0) {
+    // Calculate what would remain after removing unavailable
+    const remainingItems = checkoutItems.filter(item => {
+      const unavailable = unavailableItems.find(ui => ui.name === item.name);
+      return !unavailable || unavailable.available > 0;
+    });
+    const hasRemainingItems = remainingItems.length > 0;
+
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
@@ -367,15 +418,17 @@ const Checkout = () => {
               </div>
               <h2 className="text-2xl font-bold mb-2">Estoque Insuficiente</h2>
               <p className="text-muted-foreground mb-6">
-                Alguns itens do seu carrinho não possuem estoque suficiente. 
-                Outro cliente pode ter finalizado a compra antes de você.
+                {hasRemainingItems 
+                  ? "Alguns itens não possuem estoque suficiente. Você pode removê-los e continuar com os demais."
+                  : "Todos os itens do carrinho estão indisponíveis. Outro cliente finalizou a compra antes."
+                }
               </p>
               
               <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
                 {unavailableItems.map((item, index) => (
                   <div key={index} className="flex justify-between items-center py-2 border-b border-border last:border-0">
                     <span className="text-sm font-medium">{item.name}</span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className={`text-sm ${item.available === 0 ? "text-destructive" : "text-yellow-500"}`}>
                       {item.available === 0 
                         ? "Sem estoque" 
                         : `Disponível: ${item.available} (pedido: ${item.requested})`
@@ -386,24 +439,25 @@ const Checkout = () => {
               </div>
               
               <div className="flex flex-col gap-3">
+                {hasRemainingItems && (
+                  <Button 
+                    onClick={handleRemoveUnavailableAndContinue}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    Continuar com itens disponíveis
+                  </Button>
+                )}
                 <Button 
                   onClick={() => {
-                    // Remove unavailable items or adjust quantities
                     unavailableItems.forEach(item => {
                       const cartItem = checkoutItems.find(ci => ci.name === item.name);
-                      if (cartItem) {
+                      if (cartItem && item.available === 0) {
                         removeFromCart(cartItem.id);
                       }
                     });
                     navigate("/");
                   }}
                   variant="outline"
-                >
-                  Remover itens e voltar
-                </Button>
-                <Button 
-                  onClick={() => navigate("/")}
-                  className="bg-primary hover:bg-primary/90"
                 >
                   Voltar para a loja
                 </Button>
