@@ -90,6 +90,65 @@ export const useAdminOrders = () => {
   }, []);
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    // Find the order to get its items
+    const order = orders.find(o => o.id === orderId);
+    
+    // If changing to approved or delivered, assign stock automatically
+    if ((status === "approved" || status === "delivered") && order?.items && order.items.length > 0) {
+      // Check if deliverable already exists (stock already assigned)
+      if (!order.deliverable) {
+        const deliverables: string[] = [];
+        
+        for (const item of order.items) {
+          for (let i = 0; i < item.quantity; i++) {
+            try {
+              const { data, error: stockError } = await supabase.functions.invoke("assign-stock", {
+                body: { productId: item.product_id, orderId: orderId },
+              });
+              
+              if (stockError) {
+                console.error("Error assigning stock:", stockError);
+                deliverables.push(`${item.product_name}: Erro ao atribuir - entre em contato`);
+              } else if (data?.credential) {
+                deliverables.push(`${item.product_name}: ${data.credential}`);
+              } else {
+                deliverables.push(`${item.product_name}: Estoque indisponível - entre em contato`);
+              }
+            } catch (err) {
+              console.error("Error calling assign-stock:", err);
+              deliverables.push(`${item.product_name}: Erro ao processar - entre em contato`);
+            }
+          }
+        }
+        
+        const deliverable = deliverables.join("\n");
+        
+        // Update order with status and deliverable
+        const { error } = await supabase
+          .from("orders")
+          .update({ status, deliverable })
+          .eq("id", orderId);
+
+        if (error) {
+          toast({
+            title: "Erro ao atualizar status",
+            description: error.message,
+            variant: "destructive",
+          });
+          return { error };
+        }
+
+        toast({
+          title: "Status atualizado!",
+          description: `Pedido alterado para "${status}" e estoque atribuído automaticamente.`,
+        });
+
+        await fetchOrders();
+        return { error: null };
+      }
+    }
+    
+    // Regular status update without stock assignment
     const { error } = await supabase
       .from("orders")
       .update({ status })
