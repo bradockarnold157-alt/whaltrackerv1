@@ -94,6 +94,51 @@ export type Database = {
         }
         Relationships: []
       }
+      product_stock: {
+        Row: {
+          assigned_at: string | null
+          assigned_order_id: string | null
+          created_at: string
+          credential: string
+          id: string
+          is_available: boolean
+          product_id: number
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_order_id?: string | null
+          created_at?: string
+          credential: string
+          id?: string
+          is_available?: boolean
+          product_id: number
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_order_id?: string | null
+          created_at?: string
+          credential?: string
+          id?: string
+          is_available?: boolean
+          product_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_stock_assigned_order_id_fkey"
+            columns: ["assigned_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           badge: string | null

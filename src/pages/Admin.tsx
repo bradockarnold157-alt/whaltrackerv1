@@ -4,10 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useProducts, ProductInsert } from "@/hooks/useProducts";
 import { useAdminOrders, AdminOrder } from "@/hooks/useAdminOrders";
+import { useProductStock } from "@/hooks/useProductStock";
 import { OrderStatus } from "@/hooks/useOrders";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductForm from "@/components/admin/ProductForm";
+import StockManager from "@/components/admin/StockManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -69,6 +71,7 @@ import {
   RefreshCw,
   User,
   Gift,
+  Boxes,
 } from "lucide-react";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: any; color: string }> = {
@@ -85,9 +88,11 @@ const Admin = () => {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct, toggleProductStatus } = useProducts();
   const { orders, loading: ordersLoading, updateOrderStatus, updateOrderDeliverable, refreshOrders } = useAdminOrders();
+  const { stockByProduct, fetchStockForProduct, getAvailableCount } = useProductStock();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
+  const [stockProductId, setStockProductId] = useState<number | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [deliverableInput, setDeliverableInput] = useState("");
   const [formData, setFormData] = useState<ProductInsert>({
@@ -292,6 +297,18 @@ const Admin = () => {
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  onClick={() => {
+                                    fetchStockForProduct(product.id);
+                                    setStockProductId(product.id);
+                                  }}
+                                  className="gap-1"
+                                  title="Gerenciar estoque"
+                                >
+                                  <Boxes className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
                                   onClick={() => toggleProductStatus(product.id, !product.is_active)}
                                 >
                                   {product.is_active ? (
@@ -350,6 +367,18 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Stock Manager Modal */}
+            {stockProductId && (
+              <StockManager
+                productId={stockProductId}
+                productName={products.find((p) => p.id === stockProductId)?.name || ""}
+                open={stockProductId !== null}
+                onOpenChange={(open) => {
+                  if (!open) setStockProductId(null);
+                }}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="orders">
