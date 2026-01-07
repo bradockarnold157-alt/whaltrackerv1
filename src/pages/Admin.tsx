@@ -7,6 +7,7 @@ import { useAdminOrders, AdminOrder } from "@/hooks/useAdminOrders";
 import { OrderStatus } from "@/hooks/useOrders";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ProductForm from "@/components/admin/ProductForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -172,92 +173,6 @@ const Admin = () => {
     return <Navigate to="/" replace />;
   }
 
-  const ProductForm = ({ onSubmit, submitLabel }: { onSubmit: () => void; submitLabel: string }) => (
-    <div className="grid gap-4 py-4">
-      <div className="grid gap-2">
-        <Label htmlFor="name">Nome do Produto *</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Ex: FIFA 25 Ultimate Edition"
-        />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="description">Descrição</Label>
-        <Textarea
-          id="description"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Descrição do produto..."
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="price">Preço *</Label>
-          <Input
-            id="price"
-            type="number"
-            step="0.01"
-            value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="original_price">Preço Original</Label>
-          <Input
-            id="original_price"
-            type="number"
-            step="0.01"
-            value={formData.original_price || ""}
-            onChange={(e) => setFormData({ ...formData, original_price: parseFloat(e.target.value) || undefined })}
-          />
-        </div>
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="image">URL da Imagem *</Label>
-        <Input
-          id="image"
-          value={formData.image}
-          onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-          placeholder="https://exemplo.com/imagem.jpg"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="category">Categoria *</Label>
-          <Input
-            id="category"
-            value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            placeholder="Ex: Jogos, Assinaturas"
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="badge">Badge</Label>
-          <Input
-            id="badge"
-            value={formData.badge || ""}
-            onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
-            placeholder="Ex: Novo, -30%"
-          />
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Switch
-          checked={formData.is_active}
-          onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-        />
-        <Label>Produto ativo</Label>
-      </div>
-      <DialogFooter>
-        <Button onClick={onSubmit} disabled={!formData.name || !formData.image || !formData.category || formData.price <= 0}>
-          {submitLabel}
-        </Button>
-      </DialogFooter>
-    </div>
-  );
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -304,7 +219,7 @@ const Admin = () => {
                       <DialogTitle>Criar Novo Produto</DialogTitle>
                       <DialogDescription>Preencha os dados do novo produto</DialogDescription>
                     </DialogHeader>
-                    <ProductForm onSubmit={handleCreate} submitLabel="Criar Produto" />
+                    <ProductForm formData={formData} setFormData={setFormData} onSubmit={handleCreate} submitLabel="Criar Produto" />
                   </DialogContent>
                 </Dialog>
               </CardHeader>
@@ -397,7 +312,7 @@ const Admin = () => {
                                       <DialogTitle>Editar Produto</DialogTitle>
                                       <DialogDescription>Atualize os dados do produto</DialogDescription>
                                     </DialogHeader>
-                                    <ProductForm onSubmit={handleUpdate} submitLabel="Salvar Alterações" />
+                                    <ProductForm formData={formData} setFormData={setFormData} onSubmit={handleUpdate} submitLabel="Salvar Alterações" />
                                   </DialogContent>
                                 </Dialog>
 
