@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -38,6 +38,8 @@ const Checkout = () => {
     stopPolling
   } = usePixPayment();
   const navigate = useNavigate();
+
+  const paymentHandledRef = useRef(false);
   
   const [timeLeft, setTimeLeft] = useState(PAYMENT_TIME_MINUTES * 60);
   const [orderCreated, setOrderCreated] = useState(false);
@@ -85,6 +87,8 @@ const Checkout = () => {
   // Handle payment status change
   const handlePaymentConfirmed = useCallback(async () => {
     if (!currentOrderId) return;
+    if (paymentHandledRef.current) return;
+    paymentHandledRef.current = true;
     
     // First check if the order was already processed (e.g., by admin or another process)
     const { data: existingOrder } = await supabase
