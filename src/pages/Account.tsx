@@ -207,13 +207,25 @@ const Account = () => {
                             {/* Deliverable section - only show when delivered */}
                             {isDelivered && order.deliverable && (
                               <div className="mb-4 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-3">
                                   <Gift className="h-5 w-5 text-green-500" />
                                   <span className="font-semibold text-green-400">Entrega Digital</span>
                                 </div>
-                                <p className="text-sm font-mono bg-background/50 p-3 rounded border border-border">
-                                  {order.deliverable}
-                                </p>
+                                <div className="space-y-2">
+                                  {order.deliverable.split("\n").map((line, index) => {
+                                    const [productName, ...credentialParts] = line.split(": ");
+                                    const credential = credentialParts.join(": ");
+                                    return (
+                                      <div 
+                                        key={index} 
+                                        className="p-3 rounded-lg bg-background/50 border border-border"
+                                      >
+                                        <p className="text-xs text-muted-foreground mb-1">{productName}</p>
+                                        <p className="text-sm font-mono text-foreground">{credential}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             )}
 
