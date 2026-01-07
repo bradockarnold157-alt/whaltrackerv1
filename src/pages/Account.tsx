@@ -10,9 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Package, ShoppingCart, User, LogOut, Clock, CheckCircle, Truck, XCircle } from "lucide-react";
+import { Loader2, Package, ShoppingCart, User, LogOut, Clock, CheckCircle, Truck, XCircle, Gift, Copy, QrCode } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 const statusConfig = {
   pending: { label: "Aguardando", icon: Clock, color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
@@ -28,6 +29,36 @@ const Account = () => {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const { items: cartItems, totalPrice, totalItems } = useCart();
   const { orders, loading: ordersLoading } = useOrders();
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+
+  const handleCopyPix = async (pixCode: string) => {
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      toast({
+        title: "Código copiado!",
+        description: "Cole o código PIX no seu app de banco.",
+      });
+    } catch {
+      toast({
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar o código.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getTimeRemaining = (expiresAt: string | null | undefined) => {
+    if (!expiresAt) return null;
+    const now = new Date();
+    const expires = new Date(expiresAt);
+    const diff = expires.getTime() - now.getTime();
+    
+    if (diff <= 0) return "Expirado";
+    
+    const minutes = Math.floor(diff / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   if (authLoading) {
     return (
@@ -131,9 +162,17 @@ const Account = () => {
                     {orders.map((order) => {
                       const status = statusConfig[order.status];
                       const StatusIcon = status.icon;
+                      const isExpanded = expandedOrder === order.id;
+                      const timeRemaining = getTimeRemaining(order.pix_expires_at);
+                      const isPending = order.status === "pending";
+                      const isDelivered = order.status === "delivered";
                       
                       return (
-                        <Card key={order.id} className="border-border/30 bg-muted/30">
+                        <Card 
+                          key={order.id} 
+                          className={`border-border/30 bg-muted/30 cursor-pointer transition-all hover:border-primary/30 ${isDelivered ? "border-green-500/30" : ""}`}
+                          onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                        >
                           <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
                               <div>
@@ -150,13 +189,71 @@ const Account = () => {
                                   })}
                                 </p>
                               </div>
-                              <Badge variant="outline" className={status.color}>
-                                <StatusIcon className="h-3 w-3 mr-1" />
-                                {status.label}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                {isPending && timeRemaining && (
+                                  <Badge variant="outline" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    {timeRemaining}
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className={status.color}>
+                                  <StatusIcon className="h-3 w-3 mr-1" />
+                                  {status.label}
+                                </Badge>
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent>
+                            {/* Deliverable section - only show when delivered */}
+                            {isDelivered && order.deliverable && (
+                              <div className="mb-4 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Gift className="h-5 w-5 text-green-500" />
+                                  <span className="font-semibold text-green-400">Entrega Digital</span>
+                                </div>
+                                <p className="text-sm font-mono bg-background/50 p-3 rounded border border-border">
+                                  {order.deliverable}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* PIX Payment section - only show when pending and expanded */}
+                            {isPending && isExpanded && order.pix_qrcode && (
+                              <div className="mb-4 p-4 rounded-lg bg-primary/10 border border-primary/30">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <QrCode className="h-5 w-5 text-primary" />
+                                  <span className="font-semibold text-primary">Pagamento PIX</span>
+                                </div>
+                                <div className="flex flex-col md:flex-row gap-4">
+                                  <div className="flex justify-center">
+                                    <img 
+                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order.pix_qrcode)}`}
+                                      alt="QR Code PIX"
+                                      className="w-28 h-28 rounded-lg bg-white p-1"
+                                    />
+                                  </div>
+                                  <div className="flex-1 space-y-2">
+                                    <p className="text-xs text-muted-foreground">Código PIX:</p>
+                                    <div 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCopyPix(order.pix_qrcode!);
+                                      }}
+                                      className="flex items-center gap-2 p-2 bg-muted/50 rounded border border-border cursor-pointer hover:border-primary/50"
+                                    >
+                                      <span className="flex-1 font-mono text-xs truncate">
+                                        {order.pix_qrcode.slice(0, 40)}...
+                                      </span>
+                                      <Copy className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Assim que o pagamento for confirmado, seu pedido será entregue automaticamente.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
                             <div className="space-y-3">
                               {order.items?.map((item) => (
                                 <div key={item.id} className="flex items-center gap-3">
@@ -180,6 +277,12 @@ const Account = () => {
                                 R$ {Number(order.total).toFixed(2)}
                               </span>
                             </div>
+                            
+                            {isPending && !isExpanded && order.pix_qrcode && (
+                              <p className="text-xs text-center text-muted-foreground mt-2">
+                                Clique para ver detalhes do pagamento
+                              </p>
+                            )}
                           </CardContent>
                         </Card>
                       );
