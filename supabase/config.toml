@@ -1,1 +1,4 @@
 project_id = "aoyhoocrbrsykqbxtnya"
+
+[functions.pix-proxy]
+verify_jwt = false
