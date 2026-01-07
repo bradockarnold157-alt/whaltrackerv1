@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useOrders } from "@/hooks/useOrders";
 import { usePixPayment } from "@/hooks/usePixPayment";
-import { useProductStock } from "@/hooks/useProductStock";
+import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,6 @@ const Checkout = () => {
     startPolling,
     stopPolling
   } = usePixPayment();
-  const { assignRandomStock } = useProductStock();
   const navigate = useNavigate();
   
   const [timeLeft, setTimeLeft] = useState(PAYMENT_TIME_MINUTES * 60);
@@ -87,16 +86,27 @@ const Checkout = () => {
   const handlePaymentConfirmed = useCallback(async () => {
     if (!currentOrderId) return;
     
-    // Assign stock credentials for each item in the order
+    // Assign stock credentials for each item in the order via edge function
     const deliverables: string[] = [];
     
     for (const item of checkoutItems) {
       for (let i = 0; i < item.quantity; i++) {
-        const credential = await assignRandomStock(item.id, currentOrderId);
-        if (credential) {
-          deliverables.push(`${item.name}: ${credential}`);
-        } else {
-          deliverables.push(`${item.name}: Estoque indisponível - entre em contato`);
+        try {
+          const { data, error } = await supabase.functions.invoke("assign-stock", {
+            body: { productId: item.id, orderId: currentOrderId },
+          });
+          
+          if (error) {
+            console.error("Error assigning stock:", error);
+            deliverables.push(`${item.name}: Erro ao atribuir - entre em contato`);
+          } else if (data?.credential) {
+            deliverables.push(`${item.name}: ${data.credential}`);
+          } else {
+            deliverables.push(`${item.name}: Estoque indisponível - entre em contato`);
+          }
+        } catch (err) {
+          console.error("Error calling assign-stock:", err);
+          deliverables.push(`${item.name}: Erro ao processar - entre em contato`);
         }
       }
     }
@@ -114,7 +124,7 @@ const Checkout = () => {
     setTimeout(() => {
       navigate("/conta");
     }, 3000);
-  }, [currentOrderId, checkoutItems, assignRandomStock, updateOrderStatus, navigate]);
+  }, [currentOrderId, checkoutItems, updateOrderStatus, navigate]);
 
   // Start polling when order is created
   useEffect(() => {
