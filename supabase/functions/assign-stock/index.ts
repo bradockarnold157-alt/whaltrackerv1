@@ -19,10 +19,12 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const { productId, orderId } = await req.json();
+    
+    console.log("Assign stock request:", { productId, orderId });
 
     if (!productId || !orderId) {
       return new Response(
-        JSON.stringify({ error: "productId and orderId are required" }),
+        JSON.stringify({ error: "productId and orderId are required", credential: null }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -35,15 +37,18 @@ serve(async (req) => {
       .eq("is_available", true)
       .limit(1);
 
+    console.log("Stock query result:", { stockItems, fetchError });
+
     if (fetchError) {
       console.error("Error fetching stock:", fetchError);
       return new Response(
-        JSON.stringify({ error: fetchError.message }),
+        JSON.stringify({ error: fetchError.message, credential: null }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (!stockItems || stockItems.length === 0) {
+      console.log("No stock available for product:", productId);
       return new Response(
         JSON.stringify({ credential: null, error: "No stock available" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -51,6 +56,7 @@ serve(async (req) => {
     }
 
     const stockItem = stockItems[0];
+    console.log("Assigning stock item:", stockItem.id);
 
     // Mark as assigned
     const { error: updateError } = await supabaseAdmin
@@ -60,24 +66,27 @@ serve(async (req) => {
         assigned_order_id: orderId,
         assigned_at: new Date().toISOString(),
       })
-      .eq("id", stockItem.id);
+      .eq("id", stockItem.id)
+      .eq("is_available", true); // Double check it's still available
 
     if (updateError) {
       console.error("Error updating stock:", updateError);
       return new Response(
-        JSON.stringify({ error: updateError.message }),
+        JSON.stringify({ error: updateError.message, credential: null }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    console.log("Stock assigned successfully:", { stockId: stockItem.id, credential: stockItem.credential });
+
     return new Response(
-      JSON.stringify({ credential: stockItem.credential }),
+      JSON.stringify({ credential: stockItem.credential, success: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Assign stock error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error", credential: null }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
