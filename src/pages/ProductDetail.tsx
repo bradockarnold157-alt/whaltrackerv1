@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingCart, Star, Shield, Zap, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Star, Shield, Zap, Check, Loader2, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
 import { usePublicProducts, Product } from "@/hooks/useProducts";
+import { useSingleStockAvailability } from "@/hooks/useStockAvailability";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { toast } from "@/hooks/use-toast";
@@ -16,6 +17,7 @@ const ProductDetail = () => {
   const { getProductById } = usePublicProducts();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const { hasStock, loading: stockLoading } = useSingleStockAvailability(Number(id));
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -57,6 +59,15 @@ const ProductDetail = () => {
     : 0;
 
   const handleAddToCart = () => {
+    if (!hasStock) {
+      toast({
+        title: "Produto sem estoque",
+        description: "Este produto está temporariamente indisponível.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const cartProduct = {
       id: product.id,
       name: product.name,
@@ -160,15 +171,27 @@ const ProductDetail = () => {
             </div>
 
             {/* Add to cart */}
-            <Button
-              variant="glow"
-              size="xl"
-              className="mb-6 gap-2"
-              onClick={handleAddToCart}
-            >
-              <ShoppingCart className="h-5 w-5" />
-              Adicionar ao Carrinho
-            </Button>
+            {hasStock ? (
+              <Button
+                variant="glow"
+                size="xl"
+                className="mb-6 gap-2"
+                onClick={handleAddToCart}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                Adicionar ao Carrinho
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="xl"
+                className="mb-6 gap-2 opacity-60"
+                disabled
+              >
+                <PackageX className="h-5 w-5" />
+                Produto Sem Estoque
+              </Button>
+            )}
 
             {/* Features */}
             <div className="grid gap-4 sm:grid-cols-2">
