@@ -4,6 +4,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useOrders } from "@/hooks/useOrders";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ProfileEditForm from "@/components/ProfileEditForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -262,33 +263,10 @@ const Account = () => {
             <Card className="border-border/50 bg-card/50 backdrop-blur">
               <CardHeader>
                 <CardTitle>Meu Perfil</CardTitle>
-                <CardDescription>Suas informações pessoais</CardDescription>
+                <CardDescription>Edite suas informações pessoais</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm text-muted-foreground">Nome</label>
-                    <p className="font-medium">{profile?.display_name || "Não informado"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">Email</label>
-                    <p className="font-medium">{user.email}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">Telefone</label>
-                    <p className="font-medium">{profile?.phone || "Não informado"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">Membro desde</label>
-                    <p className="font-medium">
-                      {new Date(profile?.created_at || user.created_at).toLocaleDateString("pt-BR", {
-                        day: "2-digit",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                </div>
+                <ProfileEditForm />
               </CardContent>
             </Card>
           </TabsContent>
