@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import CartDrawer from "@/components/CartDrawer";
+import SupportChat from "@/components/SupportChat";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import Auth from "./pages/Auth";
@@ -25,6 +26,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <CartDrawer />
+            <SupportChat />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/produto/:id" element={<ProductDetail />} />
