@@ -12,6 +12,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
+const MINIMUM_ORDER_VALUE = 20;
+
 const CartDrawer = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -27,6 +29,9 @@ const CartDrawer = () => {
 
   const productIds = items.map((item) => item.id);
   const { getStockCount, loading: stockLoading } = useStockAvailability(productIds);
+  
+  const isMinimumMet = totalPrice >= MINIMUM_ORDER_VALUE;
+  const remainingForMinimum = MINIMUM_ORDER_VALUE - totalPrice;
 
   const handleIncreaseQuantity = (productId: number, currentQuantity: number) => {
     const availableStock = getStockCount(productId);
@@ -117,10 +122,18 @@ const CartDrawer = () => {
                   R$ {totalPrice.toFixed(2).replace(".", ",")}
                 </span>
               </div>
+              
+              {!isMinimumMet && items.length > 0 && (
+                <p className="mb-3 text-sm text-center text-yellow-500">
+                  Faltam R$ {remainingForMinimum.toFixed(2).replace(".", ",")} para o pedido mínimo de R$ {MINIMUM_ORDER_VALUE.toFixed(2).replace(".", ",")}
+                </p>
+              )}
+              
               <Button 
                 variant="glow" 
                 size="lg" 
                 className="w-full"
+                disabled={!isMinimumMet}
                 onClick={() => {
                   setIsCartOpen(false);
                   if (user) {

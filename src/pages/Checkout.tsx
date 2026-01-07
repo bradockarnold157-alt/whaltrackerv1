@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 const PAYMENT_TIME_MINUTES = 15;
+const MINIMUM_ORDER_VALUE = 20;
 
 const Checkout = () => {
   const { user, loading: authLoading } = useAuth();
@@ -351,6 +352,11 @@ const Checkout = () => {
 
   if (checkoutItems.length === 0 && !orderCreated && !currentOrderId) {
     return <Navigate to="/conta" replace />;
+  }
+
+  // Redirect if minimum order value not met
+  if (checkoutTotal < MINIMUM_ORDER_VALUE && !orderCreated && !currentOrderId) {
+    return <Navigate to="/" replace />;
   }
 
   // Handle removing unavailable items and continuing checkout
