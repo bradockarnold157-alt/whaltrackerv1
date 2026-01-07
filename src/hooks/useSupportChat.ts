@@ -133,13 +133,13 @@ export const useSupportChat = () => {
     }
   };
 
-  // Subscribe to realtime messages
+  // Subscribe to realtime messages and ticket updates
   useEffect(() => {
     if (!activeTicket) return;
 
     fetchMessages(activeTicket.id);
 
-    const channel = supabase
+    const messagesChannel = supabase
       .channel(`messages-${activeTicket.id}`)
       .on(
         "postgres_changes",
@@ -155,8 +155,25 @@ export const useSupportChat = () => {
       )
       .subscribe();
 
+    const ticketChannel = supabase
+      .channel(`ticket-${activeTicket.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "support_tickets",
+          filter: `id=eq.${activeTicket.id}`,
+        },
+        (payload) => {
+          setActiveTicket(payload.new as SupportTicket);
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(ticketChannel);
     };
   }, [activeTicket?.id]);
 
