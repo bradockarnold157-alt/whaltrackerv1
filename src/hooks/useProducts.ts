@@ -27,6 +27,56 @@ export interface ProductInsert {
   is_active?: boolean;
 }
 
+// Hook for public product listing
+export const usePublicProducts = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching products:", error);
+    } else {
+      setProducts(data || []);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const getProductById = async (id: number): Promise<Product | null> => {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching product:", error);
+      return null;
+    }
+
+    return data;
+  };
+
+  return {
+    products,
+    loading,
+    getProductById,
+    refreshProducts: fetchProducts,
+  };
+};
+
+// Hook for admin product management
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);

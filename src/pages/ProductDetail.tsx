@@ -1,9 +1,10 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingCart, Star, Shield, Zap, Check } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Star, Shield, Zap, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
-import { getProductById } from "@/data/products";
+import { usePublicProducts, Product } from "@/hooks/useProducts";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { toast } from "@/hooks/use-toast";
@@ -12,8 +13,31 @@ const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { getProductById } = usePublicProducts();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const product = getProductById(Number(id));
+  useEffect(() => {
+    const fetchProduct = async () => {
+      setLoading(true);
+      const data = await getProductById(Number(id));
+      setProduct(data);
+      setLoading(false);
+    };
+    fetchProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-20 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -28,8 +52,25 @@ const ProductDetail = () => {
     );
   }
 
+  const discount = product.original_price && product.original_price > product.price
+    ? Math.round((1 - product.price / product.original_price) * 100)
+    : 0;
+
   const handleAddToCart = () => {
-    addToCart(product);
+    const cartProduct = {
+      id: product.id,
+      name: product.name,
+      image: product.image,
+      price: product.price,
+      originalPrice: product.original_price || product.price,
+      discount,
+      rating: 4.8,
+      description: product.description || "",
+      category: product.category,
+      badge: product.badge || undefined,
+    };
+    
+    addToCart(cartProduct);
     toast({
       title: "Adicionado ao carrinho! 🛒",
       description: `${product.name} foi adicionado ao seu carrinho.`,
@@ -63,9 +104,11 @@ const ProductDetail = () => {
                 {product.badge}
               </Badge>
             )}
-            <Badge variant="discount" className="absolute right-4 top-4">
-              -{product.discount}%
-            </Badge>
+            {discount > 0 && (
+              <Badge variant="discount" className="absolute right-4 top-4">
+                -{discount}%
+              </Badge>
+            )}
           </div>
 
           {/* Product Info */}
@@ -82,14 +125,14 @@ const ProductDetail = () => {
                   <Star
                     key={i}
                     className={`h-5 w-5 ${
-                      i < Math.floor(product.rating)
+                      i < 4
                         ? "fill-warning text-warning"
                         : "text-muted-foreground"
                     }`}
                   />
                 ))}
               </div>
-              <span className="font-medium">{product.rating}</span>
+              <span className="font-medium">4.8</span>
               <span className="text-muted-foreground">(1.234 avaliações)</span>
             </div>
 
@@ -101,15 +144,19 @@ const ProductDetail = () => {
             <div className="mb-6 rounded-xl border border-border bg-card p-6">
               <div className="mb-2 flex items-baseline gap-3">
                 <span className="text-4xl font-bold text-gradient">
-                  R$ {product.price.toFixed(2).replace(".", ",")}
+                  R$ {Number(product.price).toFixed(2).replace(".", ",")}
                 </span>
-                <span className="text-xl text-muted-foreground line-through">
-                  R$ {product.originalPrice.toFixed(2).replace(".", ",")}
-                </span>
+                {product.original_price && product.original_price > product.price && (
+                  <span className="text-xl text-muted-foreground line-through">
+                    R$ {Number(product.original_price).toFixed(2).replace(".", ",")}
+                  </span>
+                )}
               </div>
-              <p className="text-sm text-success">
-                Você economiza R$ {(product.originalPrice - product.price).toFixed(2).replace(".", ",")}
-              </p>
+              {product.original_price && product.original_price > product.price && (
+                <p className="text-sm text-success">
+                  Você economiza R$ {(Number(product.original_price) - Number(product.price)).toFixed(2).replace(".", ",")}
+                </p>
+              )}
             </div>
 
             {/* Add to cart */}
