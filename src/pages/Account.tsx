@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useOrders } from "@/hooks/useOrders";
@@ -24,9 +24,10 @@ const statusConfig = {
 };
 
 const Account = () => {
+  const navigate = useNavigate();
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const { items: cartItems, totalPrice, totalItems } = useCart();
-  const { orders, loading: ordersLoading, createOrder } = useOrders();
+  const { orders, loading: ordersLoading } = useOrders();
 
   if (authLoading) {
     return (
@@ -40,7 +41,7 @@ const Account = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (cartItems.length === 0) {
       toast({
         title: "Carrinho vazio",
@@ -49,21 +50,7 @@ const Account = () => {
       });
       return;
     }
-
-    const { error } = await createOrder();
-    
-    if (error) {
-      toast({
-        title: "Erro ao criar pedido",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Pedido realizado!",
-        description: "Seu pedido foi criado com sucesso.",
-      });
-    }
+    navigate("/checkout");
   };
 
   const handleSignOut = async () => {

@@ -1,6 +1,8 @@
-import { X, Plus, Minus, Trash2, ShoppingBag } from "lucide-react";
+import { Plus, Minus, Trash2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import {
   Sheet,
   SheetContent,
@@ -9,6 +11,8 @@ import {
 } from "@/components/ui/sheet";
 
 const CartDrawer = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     items,
     isCartOpen,
@@ -98,7 +102,19 @@ const CartDrawer = () => {
                   R$ {totalPrice.toFixed(2).replace(".", ",")}
                 </span>
               </div>
-              <Button variant="glow" size="lg" className="w-full">
+              <Button 
+                variant="glow" 
+                size="lg" 
+                className="w-full"
+                onClick={() => {
+                  setIsCartOpen(false);
+                  if (user) {
+                    navigate("/checkout");
+                  } else {
+                    navigate("/auth");
+                  }
+                }}
+              >
                 Finalizar Compra
               </Button>
               <Button
