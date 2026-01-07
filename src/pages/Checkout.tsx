@@ -43,13 +43,23 @@ const Checkout = () => {
   const [copied, setCopied] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [checkoutItems, setCheckoutItems] = useState(cartItems);
+  const [checkoutTotal, setCheckoutTotal] = useState(totalPrice);
 
-  const discountedTotal = totalPrice * 0.95;
+  const discountedTotal = checkoutTotal * 0.95;
+
+  // Store cart items on mount before they get cleared
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      setCheckoutItems(cartItems);
+      setCheckoutTotal(totalPrice);
+    }
+  }, []);
 
   // Generate PIX payment on mount
   useEffect(() => {
     const initPayment = async () => {
-      if (cartItems.length > 0 && user && !paymentData) {
+      if (checkoutItems.length > 0 && user && !paymentData) {
         setIsInitializing(true);
         const result = await generatePayment(discountedTotal);
         if (!result) {
@@ -61,13 +71,15 @@ const Checkout = () => {
           navigate("/conta");
         }
         setIsInitializing(false);
+      } else if (checkoutItems.length === 0 && cartItems.length === 0) {
+        setIsInitializing(false);
       } else {
         setIsInitializing(false);
       }
     };
     
     initPayment();
-  }, []);
+  }, [checkoutItems]);
 
   // Handle payment status change
   const handlePaymentConfirmed = useCallback(async () => {
@@ -102,7 +114,7 @@ const Checkout = () => {
   // Create order when payment is generated
   useEffect(() => {
     const createPendingOrder = async () => {
-      if (paymentData && !currentOrderId && cartItems.length > 0) {
+      if (paymentData && !currentOrderId && checkoutItems.length > 0) {
         const expiresAt = new Date(Date.now() + PAYMENT_TIME_MINUTES * 60 * 1000);
         
         const { error, order } = await createOrder({
@@ -197,7 +209,7 @@ const Checkout = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (cartItems.length === 0 && !orderCreated && !currentOrderId) {
+  if (checkoutItems.length === 0 && !orderCreated && !currentOrderId) {
     return <Navigate to="/conta" replace />;
   }
 
@@ -363,14 +375,14 @@ const Checkout = () => {
                   Resumo do Pedido
                 </CardTitle>
                 <CardDescription>
-                  {cartItems.length} {cartItems.length === 1 ? "item" : "itens"} no carrinho
+                  {checkoutItems.length} {checkoutItems.length === 1 ? "item" : "itens"} no carrinho
                 </CardDescription>
               </CardHeader>
               
               <CardContent className="space-y-4">
                 {/* Items */}
                 <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                  {cartItems.map((item) => (
+                  {checkoutItems.map((item) => (
                     <div 
                       key={item.id} 
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/30"
@@ -399,7 +411,7 @@ const Checkout = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span>R$ {totalPrice.toFixed(2).replace(".", ",")}</span>
+                    <span>R$ {checkoutTotal.toFixed(2).replace(".", ",")}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Desconto PIX</span>
