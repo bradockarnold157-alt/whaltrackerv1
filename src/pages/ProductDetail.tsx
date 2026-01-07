@@ -1,0 +1,151 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, ShoppingCart, Star, Shield, Zap, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useCart } from "@/contexts/CartContext";
+import { getProductById } from "@/data/products";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { toast } from "@/hooks/use-toast";
+
+const ProductDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+
+  const product = getProductById(Number(id));
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-20 text-center">
+          <h1 className="mb-4 text-2xl font-bold">Produto não encontrado</h1>
+          <Button onClick={() => navigate("/")}>Voltar à loja</Button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const handleAddToCart = () => {
+    addToCart(product);
+    toast({
+      title: "Adicionado ao carrinho! 🛒",
+      description: `${product.name} foi adicionado ao seu carrinho.`,
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="container py-8">
+        {/* Back button */}
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="mb-6 gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </Button>
+
+        <div className="grid gap-8 lg:grid-cols-2">
+          {/* Product Image */}
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="aspect-square w-full object-cover"
+            />
+            {product.badge && (
+              <Badge variant="hot" className="absolute left-4 top-4">
+                {product.badge}
+              </Badge>
+            )}
+            <Badge variant="discount" className="absolute right-4 top-4">
+              -{product.discount}%
+            </Badge>
+          </div>
+
+          {/* Product Info */}
+          <div className="flex flex-col">
+            <Badge variant="secondary" className="mb-4 w-fit">
+              {product.category}
+            </Badge>
+
+            <h1 className="mb-4 text-3xl font-bold md:text-4xl">{product.name}</h1>
+
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-5 w-5 ${
+                      i < Math.floor(product.rating)
+                        ? "fill-warning text-warning"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="font-medium">{product.rating}</span>
+              <span className="text-muted-foreground">(1.234 avaliações)</span>
+            </div>
+
+            <p className="mb-6 text-lg text-muted-foreground">
+              {product.description}
+            </p>
+
+            {/* Price */}
+            <div className="mb-6 rounded-xl border border-border bg-card p-6">
+              <div className="mb-2 flex items-baseline gap-3">
+                <span className="text-4xl font-bold text-gradient">
+                  R$ {product.price.toFixed(2).replace(".", ",")}
+                </span>
+                <span className="text-xl text-muted-foreground line-through">
+                  R$ {product.originalPrice.toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+              <p className="text-sm text-success">
+                Você economiza R$ {(product.originalPrice - product.price).toFixed(2).replace(".", ",")}
+              </p>
+            </div>
+
+            {/* Add to cart */}
+            <Button
+              variant="glow"
+              size="xl"
+              className="mb-6 gap-2"
+              onClick={handleAddToCart}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              Adicionar ao Carrinho
+            </Button>
+
+            {/* Features */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                { icon: Zap, text: "Entrega em até 5 minutos" },
+                { icon: Shield, text: "Compra 100% segura" },
+                { icon: Check, text: "Garantia de 30 dias" },
+                { icon: Check, text: "Suporte 24/7" },
+              ].map((feature, index) => {
+                const Icon = feature.icon;
+                return (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <Icon className="h-4 w-4 text-primary" />
+                    <span>{feature.text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default ProductDetail;
