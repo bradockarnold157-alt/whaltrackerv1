@@ -86,6 +86,26 @@ const Checkout = () => {
   const handlePaymentConfirmed = useCallback(async () => {
     if (!currentOrderId) return;
     
+    // First check if the order was already processed (e.g., by admin or another process)
+    const { data: existingOrder } = await supabase
+      .from("orders")
+      .select("status, deliverable")
+      .eq("id", currentOrderId)
+      .single();
+    
+    if (existingOrder?.deliverable && (existingOrder.status === 'delivered' || existingOrder.status === 'approved')) {
+      // Order was already processed, just show success
+      setOrderCreated(true);
+      toast({
+        title: "Pagamento confirmado! 🎉",
+        description: "Seu pedido foi pago com sucesso.",
+      });
+      setTimeout(() => {
+        navigate("/conta");
+      }, 3000);
+      return;
+    }
+    
     // Assign stock credentials for each item in the order via edge function
     const deliverables: string[] = [];
     
@@ -137,7 +157,7 @@ const Checkout = () => {
     };
   }, [currentOrderId, paymentData, orderCreated, startPolling, stopPolling, handlePaymentConfirmed]);
 
-  // Subscribe to realtime order updates (when admin changes status)
+  // Subscribe to realtime order updates (when admin changes status or payment confirmed externally)
   useEffect(() => {
     if (!currentOrderId || orderCreated) return;
 
@@ -157,13 +177,13 @@ const Checkout = () => {
           
           console.log("Order updated via realtime:", { newStatus, deliverable });
           
-          // If admin marked as delivered or approved, show success
-          if (newStatus === 'delivered' || newStatus === 'approved') {
+          // If order was already processed (has deliverable or status changed), use that
+          if ((newStatus === 'delivered' || newStatus === 'approved') && deliverable) {
             stopPolling();
             setOrderCreated(true);
             toast({
-              title: newStatus === 'delivered' ? "Pedido Entregue! 🎉" : "Pagamento Confirmado! 🎉",
-              description: "Seu pedido foi processado. Confira os detalhes em 'Meus Pedidos'.",
+              title: "Pedido Processado! 🎉",
+              description: "Seu pedido foi entregue. Confira os detalhes em 'Meus Pedidos'.",
             });
             
             setTimeout(() => {
