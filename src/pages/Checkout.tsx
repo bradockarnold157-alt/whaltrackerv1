@@ -137,6 +137,48 @@ const Checkout = () => {
     };
   }, [currentOrderId, paymentData, orderCreated, startPolling, stopPolling, handlePaymentConfirmed]);
 
+  // Subscribe to realtime order updates (when admin changes status)
+  useEffect(() => {
+    if (!currentOrderId || orderCreated) return;
+
+    const channel = supabase
+      .channel(`order-${currentOrderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${currentOrderId}`,
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          const deliverable = payload.new.deliverable;
+          
+          console.log("Order updated via realtime:", { newStatus, deliverable });
+          
+          // If admin marked as delivered or approved, show success
+          if (newStatus === 'delivered' || newStatus === 'approved') {
+            stopPolling();
+            setOrderCreated(true);
+            toast({
+              title: newStatus === 'delivered' ? "Pedido Entregue! 🎉" : "Pagamento Confirmado! 🎉",
+              description: "Seu pedido foi processado. Confira os detalhes em 'Meus Pedidos'.",
+            });
+            
+            setTimeout(() => {
+              navigate("/conta");
+            }, 3000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentOrderId, orderCreated, stopPolling, navigate]);
+
   // Create order when payment is generated
   useEffect(() => {
     const createPendingOrder = async () => {
