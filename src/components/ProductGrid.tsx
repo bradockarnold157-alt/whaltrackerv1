@@ -2,18 +2,30 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Star, Loader2 } from "lucide-react";
+import { ShoppingCart, Star, Loader2, PackageX } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { usePublicProducts, Product } from "@/hooks/useProducts";
+import { useStockAvailability } from "@/hooks/useStockAvailability";
 import { toast } from "@/hooks/use-toast";
 
 const ProductGrid = () => {
   const { addToCart } = useCart();
   const { products, loading } = usePublicProducts();
+  const productIds = products.map((p) => p.id);
+  const { hasStock, loading: stockLoading } = useStockAvailability(productIds);
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    if (!hasStock(product.id)) {
+      toast({
+        title: "Produto sem estoque",
+        description: "Este produto está temporariamente indisponível.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Convert to cart format
     const cartProduct = {
@@ -119,15 +131,27 @@ const ProductGrid = () => {
                     </CardContent>
 
                     <CardFooter className="p-4 pt-0">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="w-full gap-2"
-                        onClick={(e) => handleAddToCart(e, product)}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                        Comprar
-                      </Button>
+                      {hasStock(product.id) ? (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={(e) => handleAddToCart(e, product)}
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                          Comprar
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-2 opacity-60"
+                          disabled
+                        >
+                          <PackageX className="h-4 w-4" />
+                          Sem Estoque
+                        </Button>
+                      )}
                     </CardFooter>
                   </Card>
                 </Link>
