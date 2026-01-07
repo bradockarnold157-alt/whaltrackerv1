@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Avoid relying on esm.sh availability during builds
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,12 +31,12 @@ serve(async (req) => {
     }
 
     // Get a random available stock item
-    const { data: stockItems, error: fetchError } = await supabaseAdmin
+    const { data: stockItems, error: fetchError } = await (supabaseAdmin
       .from("product_stock")
       .select("*")
       .eq("product_id", productId)
       .eq("is_available", true)
-      .limit(1);
+      .limit(1) as any);
 
     console.log("Stock query result:", { stockItems, fetchError });
 
@@ -59,7 +60,7 @@ serve(async (req) => {
     console.log("Assigning stock item:", stockItem.id);
 
     // Mark as assigned
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await (supabaseAdmin
       .from("product_stock")
       .update({
         is_available: false,
@@ -67,7 +68,7 @@ serve(async (req) => {
         assigned_at: new Date().toISOString(),
       })
       .eq("id", stockItem.id)
-      .eq("is_available", true); // Double check it's still available
+      .eq("is_available", true) as any); // Double check it's still available
 
     if (updateError) {
       console.error("Error updating stock:", updateError);

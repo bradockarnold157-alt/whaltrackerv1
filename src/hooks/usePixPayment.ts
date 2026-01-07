@@ -20,6 +20,10 @@ interface UsePixPaymentReturn {
   stopPolling: () => void;
 }
 
+// Some totals can become 7.600000000000001 etc due to floating point math.
+// The PIX provider is strict and may reject these values.
+const normalizeAmount = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
+
 export const usePixPayment = (): UsePixPaymentReturn => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [paymentData, setPaymentData] = useState<PixPaymentData | null>(null);
@@ -31,10 +35,12 @@ export const usePixPayment = (): UsePixPaymentReturn => {
   const generatePayment = useCallback(async (amount: number): Promise<PixPaymentData | null> => {
     setIsGenerating(true);
     try {
+      const normalizedAmount = normalizeAmount(amount);
+
       const { data, error } = await supabase.functions.invoke("pix-proxy", {
         body: {
           action: "generate",
-          amount,
+          amount: normalizedAmount,
         },
       });
 
@@ -66,11 +72,13 @@ export const usePixPayment = (): UsePixPaymentReturn => {
 
   const checkPaymentStatus = useCallback(async (transactionId: string, amount: number): Promise<PixStatus> => {
     try {
+      const normalizedAmount = normalizeAmount(amount);
+
       const { data, error } = await supabase.functions.invoke("pix-proxy", {
         body: {
           action: "verify",
           transactionId,
-          amount,
+          amount: normalizedAmount,
         },
       });
 
