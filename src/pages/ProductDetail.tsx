@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingCart, Star, Shield, Zap, Check, Loader2, PackageX } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Shield, Zap, Check, Loader2, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
@@ -8,6 +8,7 @@ import { usePublicProducts, Product } from "@/hooks/useProducts";
 import { useSingleStockAvailability } from "@/hooks/useStockAvailability";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import StarRating from "@/components/StarRating";
 import { toast } from "@/hooks/use-toast";
 
 const ProductDetail = () => {
@@ -75,7 +76,7 @@ const ProductDetail = () => {
       price: product.price,
       originalPrice: product.original_price || product.price,
       discount,
-      rating: 4.8,
+      rating: product.rating || 5,
       description: product.description || "",
       category: product.category,
       badge: product.badge || undefined,
@@ -130,21 +131,12 @@ const ProductDetail = () => {
 
             <h1 className="mb-4 text-3xl font-bold md:text-4xl">{product.name}</h1>
 
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-5 w-5 ${
-                      i < 4
-                        ? "fill-warning text-warning"
-                        : "text-muted-foreground"
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="font-medium">4.8</span>
-              <span className="text-muted-foreground">(1.234 avaliações)</span>
+            <div className="mb-4">
+              <StarRating 
+                rating={product.rating || 5} 
+                reviewsCount={product.reviews_count || 0}
+                size="md"
+              />
             </div>
 
             <p className="mb-6 text-lg text-muted-foreground">

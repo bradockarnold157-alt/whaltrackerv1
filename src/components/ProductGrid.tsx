@@ -37,7 +37,7 @@ const ProductGrid = () => {
       discount: product.original_price 
         ? Math.round((1 - product.price / product.original_price) * 100) 
         : 0,
-      rating: 4.8,
+      rating: product.rating || 5,
       description: product.description || "",
       category: product.category,
       badge: product.badge || undefined,
@@ -116,7 +116,12 @@ const ProductGrid = () => {
                       </h3>
                       <div className="mb-2 flex items-center gap-1">
                         <Star className="h-4 w-4 fill-warning text-warning" />
-                        <span className="text-sm text-muted-foreground">4.8</span>
+                        <span className="text-sm text-muted-foreground">
+                          {(product.rating || 5).toFixed(1)}
+                          {product.reviews_count !== null && product.reviews_count > 0 && (
+                            <span className="ml-1">({product.reviews_count})</span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex items-baseline gap-2">
                         <span className="text-lg font-bold text-primary">
