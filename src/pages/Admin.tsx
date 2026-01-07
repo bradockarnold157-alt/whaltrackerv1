@@ -11,6 +11,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductForm from "@/components/admin/ProductForm";
 import StockManager from "@/components/admin/StockManager";
+import SupportPanel from "@/components/admin/SupportPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -77,6 +78,7 @@ import {
   Users,
   Mail,
   Phone,
+  MessageCircle,
 } from "lucide-react";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: any; color: string }> = {
@@ -206,7 +208,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="products" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="products" className="gap-2">
               <Package className="h-4 w-4" />
               Produtos
@@ -218,6 +220,10 @@ const Admin = () => {
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               Usuários
+            </TabsTrigger>
+            <TabsTrigger value="support" className="gap-2">
+              <MessageCircle className="h-4 w-4" />
+              Suporte
             </TabsTrigger>
           </TabsList>
 
@@ -717,6 +723,10 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="support">
+            <SupportPanel />
           </TabsContent>
         </Tabs>
       </main>
