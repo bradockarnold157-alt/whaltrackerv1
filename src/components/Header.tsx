@@ -1,13 +1,15 @@
-import { ShoppingCart, LogIn, Headphones, User } from "lucide-react";
+import { ShoppingCart, LogIn, Headphones, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/hooks/useAdmin";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Header = () => {
   const { totalItems, setIsCartOpen } = useCart();
   const { user, profile } = useAuth();
+  const { isAdmin } = useAdmin();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -22,6 +24,14 @@ const Header = () => {
         </Link>
 
         <div className="flex items-center gap-3">
+          {isAdmin && (
+            <Link to="/admin">
+              <Button variant="ghost" size="sm" className="gap-2 text-primary">
+                <Shield className="h-4 w-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </Button>
+            </Link>
+          )}
           {user ? (
             <Link to="/conta">
               <Button variant="ghost" size="sm" className="gap-2">
