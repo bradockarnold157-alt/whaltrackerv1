@@ -8,6 +8,14 @@ const corsHeaders = {
 const PIX_API_BASE = "https://mlanonovo.shop/apipix";
 const CLIENT_ID = "law_3E33F642";
 
+// Prevent float precision issues like 7.600000000000001 (provider may reject it).
+const normalizeAmount = (value: unknown) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return value;
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -15,22 +23,41 @@ serve(async (req) => {
 
   try {
     const { action, amount, transactionId } = await req.json();
+    const normalizedAmount = normalizeAmount(amount);
 
     if (action === "generate") {
-      const response = await fetch(`${PIX_API_BASE}/gerar-pagamento.php`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount,
-          client_id: CLIENT_ID,
-        }),
-      });
+      // The provider occasionally returns transient errors.
+      // Retry with exponential backoff to reduce checkout friction.
+      let lastData: unknown = null;
 
-      const data = await response.json();
-      
-      return new Response(JSON.stringify(data), {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (attempt > 0) {
+          await sleep(500 * Math.pow(2, attempt - 1)); // 0.5s, 1s, 2s, 4s
+        }
+
+        const response = await fetch(`${PIX_API_BASE}/gerar-pagamento.php`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: normalizedAmount,
+            client_id: CLIENT_ID,
+          }),
+        });
+
+        const data = await response.json().catch(() => null);
+        lastData = data;
+
+        // Success criteria in current provider format
+        if (response.ok && data?.qrCodeResponse?.transactionId) {
+          return new Response(JSON.stringify(data), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      return new Response(JSON.stringify(lastData), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -42,13 +69,13 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          amount,
+          amount: normalizedAmount,
           client_id: CLIENT_ID,
         }),
       });
 
       const data = await response.json();
-      
+
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -65,7 +92,7 @@ serve(async (req) => {
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });
