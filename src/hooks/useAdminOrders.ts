@@ -33,12 +33,41 @@ export interface AdminOrder {
   };
 }
 
+interface UserEmailMap {
+  [userId: string]: string;
+}
+
 export const useAdminOrders = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userEmails, setUserEmails] = useState<UserEmailMap>({});
+
+  const fetchUserEmails = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("get-users");
+      if (error) {
+        console.error("Error fetching user emails:", error);
+        return {};
+      }
+      const emailMap: UserEmailMap = {};
+      (data?.users || []).forEach((user: { id: string; email: string | null }) => {
+        if (user.email) {
+          emailMap[user.id] = user.email;
+        }
+      });
+      setUserEmails(emailMap);
+      return emailMap;
+    } catch (err) {
+      console.error("Error fetching user emails:", err);
+      return {};
+    }
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
+    
+    // Fetch emails first
+    const emailMap = await fetchUserEmails();
     
     // Fetch all orders
     const { data: ordersData, error: ordersError } = await supabase
@@ -77,6 +106,7 @@ export const useAdminOrders = () => {
           ...order,
           items: itemsData || [],
           user_profile: profileData || undefined,
+          user_email: emailMap[order.user_id] || undefined,
         } as AdminOrder;
       })
     );
