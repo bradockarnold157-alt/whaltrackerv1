@@ -14,6 +14,7 @@ export interface Product {
   is_active: boolean;
   rating: number | null;
   reviews_count: number | null;
+  display_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -42,7 +43,7 @@ export const usePublicProducts = () => {
       .from("products")
       .select("*")
       .eq("is_active", true)
-      .order("created_at", { ascending: false });
+      .order("display_order", { ascending: true });
 
     if (error) {
       console.error("Error fetching products:", error);
@@ -90,7 +91,7 @@ export const useProducts = () => {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("display_order", { ascending: true });
 
     if (error) {
       console.error("Error fetching products:", error);
@@ -186,6 +187,36 @@ export const useProducts = () => {
     return updateProduct(id, { is_active: isActive });
   };
 
+  const reorderProducts = async (reorderedProducts: { id: number; display_order: number }[]) => {
+    // Update local state immediately for optimistic UI
+    setProducts(prev => {
+      const productMap = new Map(prev.map(p => [p.id, p]));
+      return reorderedProducts.map(rp => ({
+        ...productMap.get(rp.id)!,
+        display_order: rp.display_order
+      })).sort((a, b) => a.display_order - b.display_order);
+    });
+
+    // Update each product's display_order in the database
+    for (const item of reorderedProducts) {
+      const { error } = await supabase
+        .from("products")
+        .update({ display_order: item.display_order })
+        .eq("id", item.id);
+
+      if (error) {
+        console.error("Error updating product order:", error);
+        toast({
+          title: "Erro ao reordenar",
+          description: error.message,
+          variant: "destructive",
+        });
+        await fetchProducts(); // Revert on error
+        return;
+      }
+    }
+  };
+
   return {
     products,
     loading,
@@ -193,6 +224,7 @@ export const useProducts = () => {
     updateProduct,
     deleteProduct,
     toggleProductStatus,
+    reorderProducts,
     refreshProducts: fetchProducts,
   };
 };
