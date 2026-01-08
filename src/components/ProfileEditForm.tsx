@@ -11,7 +11,27 @@ import { Loader2, Camera, Save } from "lucide-react";
 const ProfileEditForm = () => {
   const { user, profile, updateProfile, refreshProfile } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.display_name || "");
-  const [phone, setPhone] = useState(profile?.phone || "");
+  const [phone, setPhone] = useState(profile?.phone || "+55 ");
+
+  const formatPhone = (value: string) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, "");
+    
+    // Limita a 13 dígitos (55 + DDD + número)
+    const limited = numbers.slice(0, 13);
+    
+    // Formata: +55 (00) 00000-0000
+    if (limited.length === 0) return "+55 ";
+    if (limited.length <= 2) return `+${limited}`;
+    if (limited.length <= 4) return `+${limited.slice(0, 2)} (${limited.slice(2)}`;
+    if (limited.length <= 9) return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4)}`;
+    return `+${limited.slice(0, 2)} (${limited.slice(2, 4)}) ${limited.slice(4, 9)}-${limited.slice(9)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setPhone(formatted);
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -160,10 +180,13 @@ const ProfileEditForm = () => {
         <Input
           id="phone"
           type="tel"
-          placeholder="(00) 00000-0000"
+          placeholder="+55 (00) 00000-0000"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={handlePhoneChange}
         />
+        <p className="text-xs text-muted-foreground">
+          Formato: +55 (DDD) XXXXX-XXXX
+        </p>
       </div>
 
       {/* Email (read-only) */}
