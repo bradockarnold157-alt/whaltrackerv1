@@ -12,9 +12,9 @@ export const useStoreSettings = () => {
         .from("store_settings")
         .select("*")
         .eq("key", "minimum_order_value")
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") {
+      if (error) {
         console.error("Error fetching settings:", error);
         return;
       }
@@ -54,6 +54,29 @@ export const useStoreSettings = () => {
 
   useEffect(() => {
     fetchSettings();
+
+    // Subscribe to realtime updates so all clients get the new value
+    const channel = supabase
+      .channel("store_settings_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "store_settings",
+          filter: "key=eq.minimum_order_value",
+        },
+        (payload) => {
+          if (payload.new && payload.new.value) {
+            setMinimumOrderValue(parseFloat(payload.new.value as string));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return {
