@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingCart, Shield, Zap, Check, Loader2, PackageX } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Shield, Zap, Check, Loader2, PackageX, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { useCart } from "@/contexts/CartContext";
 import { usePublicProducts, Product } from "@/hooks/useProducts";
 import { useSingleStockAvailability } from "@/hooks/useStockAvailability";
@@ -18,6 +19,7 @@ const ProductDetail = () => {
   const { getProductById } = usePublicProducts();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imageOpen, setImageOpen] = useState(false);
   const { hasStock, loading: stockLoading } = useSingleStockAvailability(Number(id));
 
   useEffect(() => {
@@ -105,12 +107,18 @@ const ProductDetail = () => {
 
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Product Image */}
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
+          <div 
+            className="relative overflow-hidden rounded-2xl border border-border bg-card cursor-zoom-in group"
+            onClick={() => setImageOpen(true)}
+          >
             <img
               src={product.image}
               alt={product.name}
-              className="aspect-square w-full object-cover"
+              className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+              <ZoomIn className="h-10 w-10 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             {product.badge && (
               <Badge variant="hot" className="absolute left-4 top-4">
                 {product.badge}
@@ -122,6 +130,20 @@ const ProductDetail = () => {
               </Badge>
             )}
           </div>
+
+          {/* Image Zoom Modal */}
+          <Dialog open={imageOpen} onOpenChange={setImageOpen}>
+            <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent">
+              <DialogClose className="absolute right-4 top-4 z-50 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors">
+                <X className="h-6 w-6" />
+              </DialogClose>
+              <img
+                src={product.image}
+                alt={product.name}
+                className="max-w-full max-h-[90vh] object-contain rounded-lg mx-auto"
+              />
+            </DialogContent>
+          </Dialog>
 
           {/* Product Info */}
           <div className="flex flex-col">
