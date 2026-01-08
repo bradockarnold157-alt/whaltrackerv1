@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useOrders } from "@/hooks/useOrders";
 import { usePixPayment } from "@/hooks/usePixPayment";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -24,12 +25,12 @@ import {
 } from "lucide-react";
 
 const PAYMENT_TIME_MINUTES = 15;
-const MINIMUM_ORDER_VALUE = 20;
 
 const Checkout = () => {
   const { user, loading: authLoading } = useAuth();
   const { items: cartItems, totalPrice, clearCart, removeFromCart } = useCart();
   const { createOrder, updateOrderStatus } = useOrders();
+  const { minimumOrderValue, loading: settingsLoading } = useStoreSettings();
   const { 
     generatePayment, 
     isGenerating, 
@@ -333,7 +334,7 @@ const Checkout = () => {
     }
   };
 
-  if (authLoading || isInitializing) {
+  if (authLoading || isInitializing || settingsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -355,7 +356,7 @@ const Checkout = () => {
   }
 
   // Redirect if minimum order value not met
-  if (checkoutTotal < MINIMUM_ORDER_VALUE && !orderCreated && !currentOrderId) {
+  if (checkoutTotal < minimumOrderValue && !orderCreated && !currentOrderId) {
     return <Navigate to="/" replace />;
   }
 
