@@ -19,6 +19,8 @@ const SupportChat = () => {
     messages,
     activeTicket,
     loading,
+    hasUnreadMessages,
+    clearUnread,
     createTicket,
     sendMessage,
     setActiveTicket,
@@ -31,6 +33,13 @@ const SupportChat = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Clear unread when opening chat
+  useEffect(() => {
+    if (isOpen && hasUnreadMessages) {
+      clearUnread();
+    }
+  }, [isOpen, hasUnreadMessages, clearUnread]);
 
   const handleSend = async () => {
     if (!message.trim()) return;
@@ -78,6 +87,12 @@ const SupportChat = () => {
         )}
       >
         <MessageCircle className="h-6 w-6" />
+        {/* Unread indicator */}
+        {hasUnreadMessages && (
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white animate-pulse">
+            !
+          </span>
+        )}
       </button>
 
       {/* Chat Window */}

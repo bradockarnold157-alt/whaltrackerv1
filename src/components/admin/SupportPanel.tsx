@@ -33,6 +33,8 @@ const SupportPanel = () => {
     activeTicket,
     setActiveTicket,
     loading,
+    hasNewTicketMessages,
+    clearNewMessages,
     sendMessage,
     closeTicket,
     deleteTicket,
@@ -43,6 +45,13 @@ const SupportPanel = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Clear notification when selecting a ticket
+  useEffect(() => {
+    if (activeTicket && hasNewTicketMessages) {
+      clearNewMessages();
+    }
+  }, [activeTicket, hasNewTicketMessages, clearNewMessages]);
 
   const handleSend = async () => {
     if (!message.trim() || !user) return;
@@ -68,6 +77,11 @@ const SupportPanel = () => {
           <CardTitle className="flex items-center gap-2 text-lg">
             <MessageCircle className="h-5 w-5" />
             Tickets
+            {hasNewTicketMessages && (
+              <Badge variant="destructive" className="ml-auto animate-pulse">
+                Nova mensagem
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -28,6 +28,7 @@ export const useSupportChat = () => {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [activeTicket, setActiveTicket] = useState<SupportTicket | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const { playNotificationSound } = useNotificationSound();
 
   const fetchTickets = async () => {
@@ -135,33 +136,68 @@ export const useSupportChat = () => {
     }
   };
 
-  // Subscribe to realtime messages and ticket updates
+  const clearUnread = () => {
+    setHasUnreadMessages(false);
+  };
+
+  // Global subscription for all user messages (even without active ticket selected)
   useEffect(() => {
-    if (!activeTicket) return;
+    if (!user) return;
 
-    fetchMessages(activeTicket.id);
-
-    const messagesChannel = supabase
-      .channel(`messages-${activeTicket.id}`)
+    const globalChannel = supabase
+      .channel(`user-global-messages-${user.id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "support_messages",
-          filter: `ticket_id=eq.${activeTicket.id}`,
         },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as SupportMessage;
-          setMessages((prev) => [...prev, newMessage]);
           
-          // Play sound only for admin messages (incoming messages for user)
-          if (newMessage.is_admin) {
+          // Only process admin messages (messages sent to user)
+          if (!newMessage.is_admin) return;
+          
+          // Check if this message is for one of user's tickets
+          const { data: ticket } = await supabase
+            .from("support_tickets")
+            .select("user_id")
+            .eq("id", newMessage.ticket_id)
+            .single();
+          
+          if (ticket?.user_id === user.id) {
+            // Play notification sound
             playNotificationSound();
+            
+            // Show toast notification
+            toast({
+              title: "💬 Nova mensagem do suporte",
+              description: "Você recebeu uma resposta no seu ticket.",
+            });
+            
+            // Set unread indicator
+            setHasUnreadMessages(true);
+            
+            // Update messages if viewing this ticket
+            if (activeTicket?.id === newMessage.ticket_id) {
+              setMessages((prev) => [...prev, newMessage]);
+            }
           }
         }
       )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(globalChannel);
+    };
+  }, [user, activeTicket?.id, playNotificationSound]);
+
+  // Subscribe to ticket updates
+  useEffect(() => {
+    if (!activeTicket) return;
+
+    fetchMessages(activeTicket.id);
 
     const ticketChannel = supabase
       .channel(`ticket-${activeTicket.id}`)
@@ -180,7 +216,6 @@ export const useSupportChat = () => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(messagesChannel);
       supabase.removeChannel(ticketChannel);
     };
   }, [activeTicket?.id]);
@@ -197,6 +232,8 @@ export const useSupportChat = () => {
     activeTicket,
     setActiveTicket,
     loading,
+    hasUnreadMessages,
+    clearUnread,
     createTicket,
     sendMessage,
     fetchTickets,
