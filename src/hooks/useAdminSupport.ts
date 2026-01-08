@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
@@ -30,6 +30,7 @@ export const useAdminSupport = () => {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [activeTicket, setActiveTicket] = useState<SupportTicketWithUser | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasNewTicketMessages, setHasNewTicketMessages] = useState(false);
   const { playNotificationSound } = useNotificationSound();
 
   const fetchTickets = async () => {
@@ -188,38 +189,54 @@ export const useAdminSupport = () => {
     setActiveTicket(null);
   };
 
-  // Subscribe to realtime
+  const clearNewMessages = () => {
+    setHasNewTicketMessages(false);
+  };
+
+  // Global subscription for ALL new messages from users (not just active ticket)
   useEffect(() => {
-    if (!activeTicket) return;
-
-    fetchMessages(activeTicket.id);
-
-    const channel = supabase
-      .channel(`admin-messages-${activeTicket.id}`)
+    const globalChannel = supabase
+      .channel("admin-global-messages")
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "support_messages",
-          filter: `ticket_id=eq.${activeTicket.id}`,
         },
         (payload) => {
           const newMessage = payload.new as SupportMessage;
-          setMessages((prev) => [...prev, newMessage]);
           
-          // Play sound only for user messages (incoming messages for admin)
-          if (!newMessage.is_admin) {
-            playNotificationSound();
+          // Only process user messages (messages sent to admin)
+          if (newMessage.is_admin) return;
+          
+          // Play notification sound
+          playNotificationSound();
+          
+          // Show toast notification
+          toast({
+            title: "💬 Nova mensagem de cliente",
+            description: "Um cliente enviou uma mensagem no suporte.",
+          });
+          
+          // Set indicator for new messages
+          setHasNewTicketMessages(true);
+          
+          // Update messages if viewing this ticket
+          if (activeTicket?.id === newMessage.ticket_id) {
+            setMessages((prev) => [...prev, newMessage]);
           }
+          
+          // Refresh tickets list
+          fetchTickets();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(globalChannel);
     };
-  }, [activeTicket?.id]);
+  }, [activeTicket?.id, playNotificationSound]);
 
   // Subscribe to new tickets
   useEffect(() => {
@@ -228,7 +245,24 @@ export const useAdminSupport = () => {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
+          schema: "public",
+          table: "support_tickets",
+        },
+        () => {
+          playNotificationSound();
+          toast({
+            title: "🎫 Novo ticket de suporte",
+            description: "Um cliente abriu um novo ticket.",
+          });
+          setHasNewTicketMessages(true);
+          fetchTickets();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
           schema: "public",
           table: "support_tickets",
         },
@@ -241,7 +275,7 @@ export const useAdminSupport = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [playNotificationSound]);
 
   useEffect(() => {
     fetchTickets();
@@ -253,6 +287,8 @@ export const useAdminSupport = () => {
     activeTicket,
     setActiveTicket,
     loading,
+    hasNewTicketMessages,
+    clearNewMessages,
     sendMessage,
     closeTicket,
     deleteTicket,
