@@ -139,7 +139,7 @@ const ProductDetail = () => {
               />
             </div>
 
-            <p className="mb-6 text-lg text-muted-foreground">
+            <p className="mb-6 text-lg text-muted-foreground whitespace-pre-line">
               {product.description}
             </p>
 
