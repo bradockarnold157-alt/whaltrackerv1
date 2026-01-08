@@ -98,7 +98,7 @@ const ProductDetail = () => {
         {/* Back button */}
         <Button
           variant="ghost"
-          onClick={() => navigate(-1)}
+          onClick={() => window.history.length > 1 ? navigate(-1) : navigate("/")}
           className="mb-6 gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
