@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
-import { useProducts, ProductInsert } from "@/hooks/useProducts";
+import { useProducts, ProductInsert, Product } from "@/hooks/useProducts";
 import { useAdminOrders, AdminOrder } from "@/hooks/useAdminOrders";
 import { useAdminUsers } from "@/hooks/useAdminUsers";
 import { useProductStock } from "@/hooks/useProductStock";
@@ -13,6 +15,7 @@ import ProductForm from "@/components/admin/ProductForm";
 import StockManager from "@/components/admin/StockManager";
 import SupportPanel from "@/components/admin/SupportPanel";
 import DashboardPanel from "@/components/admin/DashboardPanel";
+import SortableProductRow from "@/components/admin/SortableProductRow";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -95,11 +98,35 @@ const statusConfig: Record<OrderStatus, { label: string; icon: any; color: strin
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdmin();
-  const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct, toggleProductStatus } = useProducts();
+  const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct, toggleProductStatus, reorderProducts } = useProducts();
   const { orders, loading: ordersLoading, updateOrderStatus, updateOrderDeliverable, refreshOrders } = useAdminOrders();
   const { users, loading: usersLoading, refreshUsers } = useAdminUsers();
   const { stockByProduct, fetchStockForProduct, getAvailableCount } = useProductStock();
-  
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = products.findIndex((p) => p.id === active.id);
+      const newIndex = products.findIndex((p) => p.id === over.id);
+
+      const reordered = arrayMove(products, oldIndex, newIndex);
+      const updates = reordered.map((product, index) => ({
+        id: product.id,
+        display_order: index,
+      }));
+
+      reorderProducts(updates);
+    }
+  };
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
   const [stockProductId, setStockProductId] = useState<number | null>(null);
@@ -271,131 +298,52 @@ const Admin = () => {
                     <p>Nenhum produto cadastrado.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">Img</TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Categoria</TableHead>
-                          <TableHead>Preço</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {products.map((product) => (
-                          <TableRow key={product.id}>
-                            <TableCell>
-                              <img
-                                src={product.image}
-                                alt={product.name}
-                                className="w-12 h-12 rounded object-cover"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{product.name}</p>
-                                {product.badge && (
-                                  <Badge variant="secondary" className="text-xs mt-1">
-                                    {product.badge}
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>{product.category}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-primary">
-                                  R$ {Number(product.price).toFixed(2)}
-                                </p>
-                                {product.original_price && (
-                                  <p className="text-xs text-muted-foreground line-through">
-                                    R$ {Number(product.original_price).toFixed(2)}
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={product.is_active ? "default" : "secondary"}
-                                className={product.is_active ? "bg-green-500/20 text-green-400" : ""}
-                              >
-                                {product.is_active ? "Ativo" : "Inativo"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    fetchStockForProduct(product.id);
-                                    setStockProductId(product.id);
-                                  }}
-                                  className="gap-1"
-                                  title="Gerenciar estoque"
-                                >
-                                  <Boxes className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => toggleProductStatus(product.id, !product.is_active)}
-                                >
-                                  {product.is_active ? (
-                                    <EyeOff className="h-4 w-4" />
-                                  ) : (
-                                    <Eye className="h-4 w-4" />
-                                  )}
-                                </Button>
-                                
-                                <Dialog open={editingProduct === product.id} onOpenChange={(open) => { if (!open) resetForm(); }}>
-                                  <DialogTrigger asChild>
-                                    <Button size="sm" variant="ghost" onClick={() => openEditDialog(product)}>
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="max-w-lg">
-                                    <DialogHeader>
-                                      <DialogTitle>Editar Produto</DialogTitle>
-                                      <DialogDescription>Atualize os dados do produto</DialogDescription>
-                                    </DialogHeader>
-                                    <ProductForm formData={formData} setFormData={setFormData} onSubmit={handleUpdate} submitLabel="Salvar Alterações" />
-                                  </DialogContent>
-                                </Dialog>
-
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-400">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Tem certeza que deseja excluir "{product.name}"? Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => deleteProduct(product.id)}
-                                        className="bg-red-500 hover:bg-red-600"
-                                      >
-                                        Excluir
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </TableCell>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead className="w-16">Img</TableHead>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Categoria</TableHead>
+                            <TableHead>Preço</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                        </TableHeader>
+                        <TableBody>
+                          <SortableContext
+                            items={products.map((p) => p.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {products.map((product) => (
+                              <SortableProductRow
+                                key={product.id}
+                                product={product}
+                                isEditing={editingProduct === product.id}
+                                formData={formData}
+                                setFormData={setFormData}
+                                onEdit={openEditDialog}
+                                onUpdate={handleUpdate}
+                                onDelete={deleteProduct}
+                                onToggleStatus={toggleProductStatus}
+                                onManageStock={(id) => {
+                                  fetchStockForProduct(id);
+                                  setStockProductId(id);
+                                }}
+                                onCloseEdit={resetForm}
+                              />
+                            ))}
+                          </SortableContext>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </DndContext>
                 )}
               </CardContent>
             </Card>
