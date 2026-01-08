@@ -24,7 +24,6 @@ const SupportPanel = () => {
     loading,
     sendMessage,
     closeTicket,
-    reopenTicket,
   } = useAdminSupport();
 
   useEffect(() => {
@@ -156,8 +155,8 @@ const SupportPanel = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {activeTicket.status === "open" ? (
+                {activeTicket.status === "open" && (
+                  <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -166,16 +165,8 @@ const SupportPanel = () => {
                       <X className="mr-1 h-4 w-4" />
                       Fechar
                     </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => reopenTicket(activeTicket.id)}
-                    >
-                      Reabrir
-                    </Button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="flex h-[400px] flex-col p-0">
