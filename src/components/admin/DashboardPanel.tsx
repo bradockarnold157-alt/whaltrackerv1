@@ -54,9 +54,11 @@ const DashboardPanel = () => {
     refreshDashboard,
   } = useAdminDashboard();
 
-  const { minimumOrderValue, loading: settingsLoading, updateMinimumOrderValue } = useStoreSettings();
+  const { minimumOrderValue, pixDiscount, loading: settingsLoading, updateMinimumOrderValue, updatePixDiscount } = useStoreSettings();
   const [newMinValue, setNewMinValue] = useState<string>("");
+  const [newPixDiscount, setNewPixDiscount] = useState<string>("");
   const [isSavingMin, setIsSavingMin] = useState(false);
+  const [isSavingPix, setIsSavingPix] = useState(false);
 
   const handleSaveMinValue = async () => {
     const value = parseFloat(newMinValue);
@@ -67,6 +69,17 @@ const DashboardPanel = () => {
     await updateMinimumOrderValue(value);
     setNewMinValue("");
     setIsSavingMin(false);
+  };
+
+  const handleSavePixDiscount = async () => {
+    const value = parseFloat(newPixDiscount);
+    if (isNaN(value) || value < 0 || value > 100) {
+      return;
+    }
+    setIsSavingPix(true);
+    await updatePixDiscount(value);
+    setNewPixDiscount("");
+    setIsSavingPix(false);
   };
 
   if (loading && settingsLoading) {
@@ -270,32 +283,65 @@ const DashboardPanel = () => {
           <CardDescription>Configure parâmetros gerais da sua loja</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
-            <div className="space-y-2 flex-1 max-w-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Minimum Order Value */}
+            <div className="space-y-2">
               <Label htmlFor="minOrder">Valor Mínimo do Pedido (R$)</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-2">
                 <div className="text-sm text-muted-foreground">
                   Atual: <span className="font-bold text-foreground">R$ {minimumOrderValue.toFixed(2)}</span>
                 </div>
               </div>
-              <Input
-                id="minOrder"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Novo valor mínimo"
-                value={newMinValue}
-                onChange={(e) => setNewMinValue(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="minOrder"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Novo valor mínimo"
+                  value={newMinValue}
+                  onChange={(e) => setNewMinValue(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSaveMinValue}
+                  disabled={isSavingMin || !newMinValue || parseFloat(newMinValue) < 0}
+                >
+                  {isSavingMin && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Salvar
+                </Button>
+              </div>
             </div>
-            <Button
-              onClick={handleSaveMinValue}
-              disabled={isSavingMin || !newMinValue || parseFloat(newMinValue) < 0}
-              className="gap-2"
-            >
-              {isSavingMin && <Loader2 className="h-4 w-4 animate-spin" />}
-              Salvar
-            </Button>
+
+            {/* PIX Discount */}
+            <div className="space-y-2">
+              <Label htmlFor="pixDiscount">Desconto PIX (%)</Label>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="text-sm text-muted-foreground">
+                  Atual: <span className="font-bold text-foreground">{pixDiscount}%</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="pixDiscount"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  placeholder="Novo desconto"
+                  value={newPixDiscount}
+                  onChange={(e) => setNewPixDiscount(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSavePixDiscount}
+                  disabled={isSavingPix || !newPixDiscount || parseFloat(newPixDiscount) < 0 || parseFloat(newPixDiscount) > 100}
+                >
+                  {isSavingPix && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Salvar
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

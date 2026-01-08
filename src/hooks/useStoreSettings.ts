@@ -4,15 +4,14 @@ import { toast } from "sonner";
 
 export const useStoreSettings = () => {
   const [minimumOrderValue, setMinimumOrderValue] = useState<number>(20);
+  const [pixDiscount, setPixDiscount] = useState<number>(5);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = async () => {
     try {
       const { data, error } = await supabase
         .from("store_settings")
-        .select("*")
-        .eq("key", "minimum_order_value")
-        .maybeSingle();
+        .select("*");
 
       if (error) {
         console.error("Error fetching settings:", error);
@@ -20,7 +19,13 @@ export const useStoreSettings = () => {
       }
 
       if (data) {
-        setMinimumOrderValue(parseFloat(data.value));
+        data.forEach((setting) => {
+          if (setting.key === "minimum_order_value") {
+            setMinimumOrderValue(parseFloat(setting.value));
+          } else if (setting.key === "pix_discount") {
+            setPixDiscount(parseFloat(setting.value));
+          }
+        });
       }
     } catch (error) {
       console.error("Error:", error);
@@ -52,23 +57,66 @@ export const useStoreSettings = () => {
     }
   };
 
+  const updatePixDiscount = async (value: number) => {
+    try {
+      // First try to update, if no row exists, insert
+      const { data: existing } = await supabase
+        .from("store_settings")
+        .select("id")
+        .eq("key", "pix_discount")
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        const result = await supabase
+          .from("store_settings")
+          .update({ value: value.toString() })
+          .eq("key", "pix_discount");
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from("store_settings")
+          .insert({ key: "pix_discount", value: value.toString() });
+        error = result.error;
+      }
+
+      if (error) {
+        toast.error("Erro ao atualizar desconto PIX");
+        console.error("Error updating setting:", error);
+        return false;
+      }
+
+      setPixDiscount(value);
+      toast.success("Desconto PIX atualizado com sucesso!");
+      return true;
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Erro ao atualizar desconto PIX");
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
 
-    // Subscribe to realtime updates so all clients get the new value
+    // Subscribe to realtime updates so all clients get the new values
     const channel = supabase
       .channel("store_settings_changes")
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "store_settings",
-          filter: "key=eq.minimum_order_value",
         },
         (payload) => {
-          if (payload.new && payload.new.value) {
-            setMinimumOrderValue(parseFloat(payload.new.value as string));
+          const newData = payload.new as { key: string; value: string } | undefined;
+          if (newData) {
+            if (newData.key === "minimum_order_value") {
+              setMinimumOrderValue(parseFloat(newData.value));
+            } else if (newData.key === "pix_discount") {
+              setPixDiscount(parseFloat(newData.value));
+            }
           }
         }
       )
@@ -81,8 +129,10 @@ export const useStoreSettings = () => {
 
   return {
     minimumOrderValue,
+    pixDiscount,
     loading,
     updateMinimumOrderValue,
+    updatePixDiscount,
     refreshSettings: fetchSettings,
   };
 };

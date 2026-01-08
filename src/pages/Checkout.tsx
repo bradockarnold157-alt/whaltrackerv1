@@ -30,8 +30,8 @@ const Checkout = () => {
   const { user, loading: authLoading } = useAuth();
   const { items: cartItems, totalPrice, clearCart, removeFromCart } = useCart();
   const { createOrder, updateOrderStatus } = useOrders();
-  const { minimumOrderValue, loading: settingsLoading } = useStoreSettings();
-  const { 
+  const { minimumOrderValue, pixDiscount, loading: settingsLoading } = useStoreSettings();
+  const {
     generatePayment, 
     isGenerating, 
     paymentData, 
@@ -55,7 +55,7 @@ const Checkout = () => {
   const [stockError, setStockError] = useState<string | null>(null);
   const [unavailableItems, setUnavailableItems] = useState<{name: string, requested: number, available: number}[]>([]);
 
-  const discountedTotal = checkoutTotal * 0.95;
+  const discountedTotal = checkoutTotal * (1 - pixDiscount / 100);
 
   // Store cart items on mount before they get cleared
   useEffect(() => {
@@ -679,7 +679,7 @@ const Checkout = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Desconto PIX</span>
-                    <span className="text-green-500">-5%</span>
+                    <span className="text-green-500">-{pixDiscount}%</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center pt-2">
