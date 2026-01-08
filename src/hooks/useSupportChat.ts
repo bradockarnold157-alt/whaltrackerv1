@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -30,8 +30,9 @@ export const useSupportChat = () => {
   const [loading, setLoading] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const { playNotificationSound } = useNotificationSound();
+  const processedMessageIds = useRef<Set<string>>(new Set());
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     if (!user) return;
     
     const { data, error } = await supabase
@@ -52,9 +53,9 @@ export const useSupportChat = () => {
     if (openTicket && !activeTicket) {
       setActiveTicket(openTicket);
     }
-  };
+  }, [user, activeTicket]);
 
-  const fetchMessages = async (ticketId: string) => {
+  const fetchMessages = useCallback(async (ticketId: string) => {
     const { data, error } = await supabase
       .from("support_messages")
       .select("id, ticket_id, sender_id, is_admin, message, created_at")
@@ -66,15 +67,18 @@ export const useSupportChat = () => {
       return;
     }
 
+    // Track all message IDs to prevent duplicates
+    const newProcessedIds = new Set(data?.map(m => m.id) || []);
+    processedMessageIds.current = newProcessedIds;
+    
     setMessages(data || []);
-  };
+  }, []);
 
   const createTicket = async (subject: string, initialMessage: string) => {
     if (!user) return null;
 
     setLoading(true);
 
-    // Create ticket
     const { data: ticket, error: ticketError } = await supabase
       .from("support_tickets")
       .insert({ user_id: user.id, subject })
@@ -92,7 +96,6 @@ export const useSupportChat = () => {
       return null;
     }
 
-    // Send initial message
     const { error: messageError } = await supabase
       .from("support_messages")
       .insert({
@@ -136,71 +139,58 @@ export const useSupportChat = () => {
     }
   };
 
-  const clearUnread = () => {
+  const clearUnread = useCallback(() => {
     setHasUnreadMessages(false);
-  };
+  }, []);
 
-  // Global subscription for all user messages (even without active ticket selected)
+  // Subscribe to messages for active ticket
   useEffect(() => {
-    if (!user) return;
+    if (!activeTicket || !user) return;
 
-    const globalChannel = supabase
-      .channel(`user-global-messages-${user.id}`)
+    fetchMessages(activeTicket.id);
+
+    const messagesChannel = supabase
+      .channel(`user-messages-${activeTicket.id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "support_messages",
+          filter: `ticket_id=eq.${activeTicket.id}`,
         },
-        async (payload) => {
+        (payload) => {
           const newMessage = payload.new as SupportMessage;
           
-          // Only process admin messages (messages sent to user)
-          if (!newMessage.is_admin) return;
+          // Prevent duplicates
+          if (processedMessageIds.current.has(newMessage.id)) {
+            return;
+          }
+          processedMessageIds.current.add(newMessage.id);
           
-          // Check if this message is for one of user's tickets
-          const { data: ticket } = await supabase
-            .from("support_tickets")
-            .select("user_id")
-            .eq("id", newMessage.ticket_id)
-            .single();
+          setMessages((prev) => {
+            // Double check for duplicates in state
+            if (prev.some(m => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
           
-          if (ticket?.user_id === user.id) {
-            // Play notification sound
+          // Play sound and notify for admin messages
+          if (newMessage.is_admin) {
             playNotificationSound();
-            
-            // Show toast notification
             toast({
               title: "💬 Nova mensagem do suporte",
-              description: "Você recebeu uma resposta no seu ticket.",
+              description: "Você recebeu uma resposta.",
             });
-            
-            // Set unread indicator
             setHasUnreadMessages(true);
-            
-            // Update messages if viewing this ticket
-            if (activeTicket?.id === newMessage.ticket_id) {
-              setMessages((prev) => [...prev, newMessage]);
-            }
           }
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(globalChannel);
-    };
-  }, [user, activeTicket?.id, playNotificationSound]);
-
-  // Subscribe to ticket updates
-  useEffect(() => {
-    if (!activeTicket) return;
-
-    fetchMessages(activeTicket.id);
-
     const ticketChannel = supabase
-      .channel(`ticket-${activeTicket.id}`)
+      .channel(`user-ticket-${activeTicket.id}`)
       .on(
         "postgres_changes",
         {
@@ -216,15 +206,16 @@ export const useSupportChat = () => {
       .subscribe();
 
     return () => {
+      supabase.removeChannel(messagesChannel);
       supabase.removeChannel(ticketChannel);
     };
-  }, [activeTicket?.id]);
+  }, [activeTicket?.id, user, fetchMessages, playNotificationSound]);
 
   useEffect(() => {
     if (user) {
       fetchTickets();
     }
-  }, [user]);
+  }, [user, fetchTickets]);
 
   return {
     tickets,

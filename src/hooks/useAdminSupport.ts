@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
@@ -32,11 +32,11 @@ export const useAdminSupport = () => {
   const [loading, setLoading] = useState(false);
   const [hasNewTicketMessages, setHasNewTicketMessages] = useState(false);
   const { playNotificationSound } = useNotificationSound();
+  const processedMessageIds = useRef<Set<string>>(new Set());
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     setLoading(true);
 
-    // Fetch tickets
     const { data: ticketsData, error: ticketsError } = await supabase
       .from("support_tickets")
       .select("*")
@@ -48,12 +48,10 @@ export const useAdminSupport = () => {
       return;
     }
 
-    // Fetch profiles for user info
     const { data: profiles } = await supabase
       .from("profiles")
       .select("user_id, display_name");
 
-    // Fetch last message for each ticket
     const ticketsWithInfo = await Promise.all(
       (ticketsData || []).map(async (ticket) => {
         const { data: lastMsg } = await supabase
@@ -76,9 +74,9 @@ export const useAdminSupport = () => {
 
     setTickets(ticketsWithInfo);
     setLoading(false);
-  };
+  }, []);
 
-  const fetchMessages = async (ticketId: string) => {
+  const fetchMessages = useCallback(async (ticketId: string) => {
     const { data, error } = await supabase
       .from("support_messages")
       .select("id, ticket_id, sender_id, is_admin, message, created_at")
@@ -90,8 +88,12 @@ export const useAdminSupport = () => {
       return;
     }
 
+    // Track all message IDs to prevent duplicates
+    const newProcessedIds = new Set(data?.map(m => m.id) || []);
+    processedMessageIds.current = newProcessedIds;
+
     setMessages(data || []);
-  };
+  }, []);
 
   const sendMessage = async (message: string, userId: string) => {
     if (!activeTicket) return;
@@ -115,7 +117,6 @@ export const useAdminSupport = () => {
       return;
     }
 
-    // Update ticket updated_at
     await supabase
       .from("support_tickets")
       .update({ updated_at: new Date().toISOString() })
@@ -148,7 +149,6 @@ export const useAdminSupport = () => {
   };
 
   const deleteTicket = async (ticketId: string) => {
-    // First delete all messages for this ticket
     const { error: messagesError } = await supabase
       .from("support_messages")
       .delete()
@@ -164,7 +164,6 @@ export const useAdminSupport = () => {
       return;
     }
 
-    // Then delete the ticket
     const { error } = await supabase
       .from("support_tickets")
       .delete()
@@ -189,14 +188,60 @@ export const useAdminSupport = () => {
     setActiveTicket(null);
   };
 
-  const clearNewMessages = () => {
+  const clearNewMessages = useCallback(() => {
     setHasNewTicketMessages(false);
-  };
+  }, []);
 
-  // Global subscription for ALL new messages from users (not just active ticket)
+  // Subscribe to messages for active ticket
   useEffect(() => {
-    const globalChannel = supabase
-      .channel("admin-global-messages")
+    if (!activeTicket) return;
+
+    fetchMessages(activeTicket.id);
+
+    const channel = supabase
+      .channel(`admin-messages-${activeTicket.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "support_messages",
+          filter: `ticket_id=eq.${activeTicket.id}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as SupportMessage;
+          
+          // Prevent duplicates
+          if (processedMessageIds.current.has(newMessage.id)) {
+            return;
+          }
+          processedMessageIds.current.add(newMessage.id);
+          
+          setMessages((prev) => {
+            // Double check for duplicates in state
+            if (prev.some(m => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
+          
+          // Play sound and notify for user messages
+          if (!newMessage.is_admin) {
+            playNotificationSound();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeTicket?.id, fetchMessages, playNotificationSound]);
+
+  // Global subscription for new messages and tickets (for notifications)
+  useEffect(() => {
+    const globalMessagesChannel = supabase
+      .channel("admin-global-messages-notify")
       .on(
         "postgres_changes",
         {
@@ -207,24 +252,17 @@ export const useAdminSupport = () => {
         (payload) => {
           const newMessage = payload.new as SupportMessage;
           
-          // Only process user messages (messages sent to admin)
+          // Only notify for user messages (not admin's own messages)
           if (newMessage.is_admin) return;
           
-          // Play notification sound
-          playNotificationSound();
-          
-          // Show toast notification
-          toast({
-            title: "💬 Nova mensagem de cliente",
-            description: "Um cliente enviou uma mensagem no suporte.",
-          });
-          
-          // Set indicator for new messages
-          setHasNewTicketMessages(true);
-          
-          // Update messages if viewing this ticket
-          if (activeTicket?.id === newMessage.ticket_id) {
-            setMessages((prev) => [...prev, newMessage]);
+          // If not viewing this ticket, show notification
+          if (!activeTicket || activeTicket.id !== newMessage.ticket_id) {
+            playNotificationSound();
+            toast({
+              title: "💬 Nova mensagem de cliente",
+              description: "Um cliente enviou uma mensagem no suporte.",
+            });
+            setHasNewTicketMessages(true);
           }
           
           // Refresh tickets list
@@ -233,15 +271,8 @@ export const useAdminSupport = () => {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(globalChannel);
-    };
-  }, [activeTicket?.id, playNotificationSound]);
-
-  // Subscribe to new tickets
-  useEffect(() => {
-    const channel = supabase
-      .channel("admin-tickets")
+    const ticketsChannel = supabase
+      .channel("admin-tickets-notify")
       .on(
         "postgres_changes",
         {
@@ -273,13 +304,14 @@ export const useAdminSupport = () => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(globalMessagesChannel);
+      supabase.removeChannel(ticketsChannel);
     };
-  }, [playNotificationSound]);
+  }, [activeTicket?.id, playNotificationSound, fetchTickets]);
 
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [fetchTickets]);
 
   return {
     tickets,
