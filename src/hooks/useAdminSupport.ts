@@ -144,18 +144,46 @@ export const useAdminSupport = () => {
     setActiveTicket(null);
   };
 
-  const reopenTicket = async (ticketId: string) => {
-    const { error } = await supabase
-      .from("support_tickets")
-      .update({ status: "open" })
-      .eq("id", ticketId);
+  const deleteTicket = async (ticketId: string) => {
+    // First delete all messages for this ticket
+    const { error: messagesError } = await supabase
+      .from("support_messages")
+      .delete()
+      .eq("ticket_id", ticketId);
 
-    if (error) {
-      console.error("Error reopening ticket:", error);
+    if (messagesError) {
+      console.error("Error deleting messages:", messagesError);
+      toast({
+        title: "Erro",
+        description: "Não foi possível apagar as mensagens do ticket.",
+        variant: "destructive",
+      });
       return;
     }
 
+    // Then delete the ticket
+    const { error } = await supabase
+      .from("support_tickets")
+      .delete()
+      .eq("id", ticketId);
+
+    if (error) {
+      console.error("Error deleting ticket:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível apagar o ticket.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Ticket apagado",
+      description: "O ticket foi removido com sucesso.",
+    });
+
     await fetchTickets();
+    setActiveTicket(null);
   };
 
   // Subscribe to realtime
@@ -219,7 +247,7 @@ export const useAdminSupport = () => {
     loading,
     sendMessage,
     closeTicket,
-    reopenTicket,
+    deleteTicket,
     fetchTickets,
     fetchMessages,
   };
