@@ -1,10 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, X, MessageCircle, Clock, User } from "lucide-react";
+import { Send, X, MessageCircle, Clock, User, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAdminSupport } from "@/hooks/useAdminSupport";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -24,6 +35,7 @@ const SupportPanel = () => {
     loading,
     sendMessage,
     closeTicket,
+    deleteTicket,
   } = useAdminSupport();
 
   useEffect(() => {
@@ -155,8 +167,8 @@ const SupportPanel = () => {
                     </span>
                   </div>
                 </div>
-                {activeTicket.status === "open" && (
-                  <div className="flex gap-2">
+                <div className="flex gap-2">
+                  {activeTicket.status === "open" && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -165,8 +177,37 @@ const SupportPanel = () => {
                       <X className="mr-1 h-4 w-4" />
                       Fechar
                     </Button>
-                  </div>
-                )}
+                  )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-400"
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" />
+                        Apagar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Apagar ticket?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem certeza que deseja apagar este ticket e todas as suas mensagens? Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteTicket(activeTicket.id)}
+                          className="bg-red-500 hover:bg-red-600"
+                        >
+                          Apagar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="flex h-[400px] flex-col p-0">
