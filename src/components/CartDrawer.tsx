@@ -4,6 +4,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useStockAvailability } from "@/hooks/useStockAvailability";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -12,11 +13,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
-const MINIMUM_ORDER_VALUE = 20;
-
 const CartDrawer = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { minimumOrderValue } = useStoreSettings();
   const {
     items,
     isCartOpen,
@@ -30,8 +30,8 @@ const CartDrawer = () => {
   const productIds = items.map((item) => item.id);
   const { getStockCount, loading: stockLoading } = useStockAvailability(productIds);
   
-  const isMinimumMet = totalPrice >= MINIMUM_ORDER_VALUE;
-  const remainingForMinimum = MINIMUM_ORDER_VALUE - totalPrice;
+  const isMinimumMet = totalPrice >= minimumOrderValue;
+  const remainingForMinimum = minimumOrderValue - totalPrice;
 
   const handleIncreaseQuantity = (productId: number, currentQuantity: number) => {
     const availableStock = getStockCount(productId);
@@ -125,7 +125,7 @@ const CartDrawer = () => {
               
               {!isMinimumMet && items.length > 0 && (
                 <p className="mb-3 text-sm text-center text-yellow-500">
-                  Faltam R$ {remainingForMinimum.toFixed(2).replace(".", ",")} para o pedido mínimo de R$ {MINIMUM_ORDER_VALUE.toFixed(2).replace(".", ",")}
+                  Faltam R$ {remainingForMinimum.toFixed(2).replace(".", ",")} para o pedido mínimo de R$ {minimumOrderValue.toFixed(2).replace(".", ",")}
                 </p>
               )}
               

@@ -12,6 +12,7 @@ import Footer from "@/components/Footer";
 import ProductForm from "@/components/admin/ProductForm";
 import StockManager from "@/components/admin/StockManager";
 import SupportPanel from "@/components/admin/SupportPanel";
+import DashboardPanel from "@/components/admin/DashboardPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -79,6 +80,7 @@ import {
   Mail,
   Phone,
   MessageCircle,
+  LayoutDashboard,
 } from "lucide-react";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: any; color: string }> = {
@@ -207,8 +209,12 @@ const Admin = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="products" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+        <Tabs defaultValue="dashboard" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsTrigger value="dashboard" className="gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
             <TabsTrigger value="products" className="gap-2">
               <Package className="h-4 w-4" />
               Produtos
@@ -226,6 +232,10 @@ const Admin = () => {
               Suporte
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dashboard">
+            <DashboardPanel />
+          </TabsContent>
 
           <TabsContent value="products">
             <Card className="border-border/50 bg-card/50 backdrop-blur">
