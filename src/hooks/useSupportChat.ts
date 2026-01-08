@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 
 export interface SupportTicket {
   id: string;
@@ -27,6 +28,7 @@ export const useSupportChat = () => {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [activeTicket, setActiveTicket] = useState<SupportTicket | null>(null);
   const [loading, setLoading] = useState(false);
+  const { playNotificationSound } = useNotificationSound();
 
   const fetchTickets = async () => {
     if (!user) return;
@@ -150,7 +152,13 @@ export const useSupportChat = () => {
           filter: `ticket_id=eq.${activeTicket.id}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as SupportMessage]);
+          const newMessage = payload.new as SupportMessage;
+          setMessages((prev) => [...prev, newMessage]);
+          
+          // Play sound only for admin messages (incoming messages for user)
+          if (newMessage.is_admin) {
+            playNotificationSound();
+          }
         }
       )
       .subscribe();
