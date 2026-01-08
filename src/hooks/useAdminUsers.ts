@@ -10,6 +10,13 @@ export interface AdminUser {
   display_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  // Order statistics
+  total_orders: number;
+  pending_orders: number;
+  completed_orders: number;
+  total_spent: number;
+  last_order_date: string | null;
+  has_purchased: boolean;
 }
 
 export const useAdminUsers = () => {

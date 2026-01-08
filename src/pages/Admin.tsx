@@ -654,71 +654,91 @@ const Admin = () => {
                     <p>Nenhum usuário encontrado.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12"></TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Telefone</TableHead>
-                          <TableHead>Cadastro</TableHead>
-                          <TableHead>Último acesso</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {users.map((userItem) => (
-                          <TableRow key={userItem.id}>
-                            <TableCell>
-                              <Avatar className="h-10 w-10">
+                  <div className="space-y-4">
+                    {users.map((userItem) => (
+                      <Card key={userItem.id} className="border-border/50 bg-muted/20">
+                        <CardContent className="p-4">
+                          <div className="flex flex-col md:flex-row md:items-center gap-4">
+                            {/* Avatar and basic info */}
+                            <div className="flex items-center gap-3 min-w-[250px]">
+                              <Avatar className="h-12 w-12">
                                 <AvatarImage src={userItem.avatar_url || undefined} />
                                 <AvatarFallback className="bg-primary/20 text-primary">
                                   {userItem.display_name?.charAt(0)?.toUpperCase() || userItem.email?.charAt(0)?.toUpperCase() || "U"}
                                 </AvatarFallback>
                               </Avatar>
-                            </TableCell>
-                            <TableCell>
-                              <p className="font-medium">{userItem.display_name || "Sem nome"}</p>
-                              <p className="text-xs text-muted-foreground font-mono">{userItem.id.slice(0, 8)}...</p>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-sm">{userItem.email || "N/A"}</span>
+                              <div>
+                                <p className="font-medium">{userItem.display_name || "Sem nome"}</p>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Mail className="h-3 w-3" />
+                                  <span>{userItem.email || "N/A"}</span>
+                                </div>
+                                {userItem.phone && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Phone className="h-3 w-3" />
+                                    <span>{userItem.phone}</span>
+                                  </div>
+                                )}
                               </div>
-                            </TableCell>
-                            <TableCell>
+                            </div>
+
+                            {/* Statistics badges */}
+                            <div className="flex flex-wrap gap-2 flex-1">
+                              {userItem.has_purchased ? (
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Já comprou
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-muted-foreground">
+                                  Nunca comprou
+                                </Badge>
+                              )}
+                              
+                              {userItem.pending_orders > 0 && (
+                                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {userItem.pending_orders} pendente{userItem.pending_orders > 1 ? "s" : ""}
+                                </Badge>
+                              )}
+
+                              <Badge variant="outline" className="gap-1">
+                                <ShoppingCart className="h-3 w-3" />
+                                {userItem.total_orders} pedido{userItem.total_orders !== 1 ? "s" : ""}
+                              </Badge>
+
+                              {userItem.total_spent > 0 && (
+                                <Badge variant="outline" className="gap-1 text-primary border-primary/30">
+                                  R$ {userItem.total_spent.toFixed(2)}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Dates */}
+                            <div className="text-xs text-muted-foreground space-y-1 min-w-[150px]">
                               <div className="flex items-center gap-2">
-                                <Phone className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-sm">{userItem.phone || "N/A"}</span>
+                                <User className="h-3 w-3" />
+                                <span>Cadastro: {new Date(userItem.created_at).toLocaleDateString("pt-BR")}</span>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm text-muted-foreground">
-                                {new Date(userItem.created_at).toLocaleDateString("pt-BR", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm text-muted-foreground">
-                                {userItem.last_sign_in_at
-                                  ? new Date(userItem.last_sign_in_at).toLocaleDateString("pt-BR", {
-                                      day: "2-digit",
-                                      month: "short",
-                                      year: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })
-                                  : "Nunca"}
-                              </span>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                              {userItem.last_order_date && (
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-3 w-3" />
+                                  <span>Último pedido: {new Date(userItem.last_order_date).toLocaleDateString("pt-BR")}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-3 w-3" />
+                                <span>
+                                  Acesso: {userItem.last_sign_in_at
+                                    ? new Date(userItem.last_sign_in_at).toLocaleDateString("pt-BR")
+                                    : "Nunca"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
                 )}
               </CardContent>
