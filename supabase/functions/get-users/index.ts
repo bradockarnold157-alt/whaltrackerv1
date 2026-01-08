@@ -20,6 +20,14 @@ interface AuthUser {
   last_sign_in_at?: string;
 }
 
+interface Order {
+  id: string;
+  user_id: string;
+  status: string;
+  total: number;
+  created_at: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -77,12 +85,38 @@ serve(async (req) => {
       console.error("Error fetching profiles:", profilesResult.error);
     }
 
+    // Get all orders for statistics
+    const ordersResult = await (adminClient
+      .from("orders")
+      .select("id, user_id, status, total, created_at") as any);
+
+    if (ordersResult.error) {
+      console.error("Error fetching orders:", ordersResult.error);
+    }
+
     const profiles = (profilesResult.data || []) as Profile[];
     const authUsers = (listUsersResult.data?.users || []) as AuthUser[];
+    const orders = (ordersResult.data || []) as Order[];
 
-    // Combine users with profiles
+    // Combine users with profiles and order stats
     const users = authUsers.map((user: AuthUser) => {
       const profile = profiles.find((p: Profile) => p.user_id === user.id);
+      const userOrders = orders.filter((o: Order) => o.user_id === user.id);
+      
+      const totalOrders = userOrders.length;
+      const pendingOrders = userOrders.filter((o: Order) => o.status === "pending").length;
+      const completedOrders = userOrders.filter((o: Order) => 
+        o.status === "delivered" || o.status === "approved"
+      ).length;
+      const totalSpent = userOrders
+        .filter((o: Order) => o.status !== "cancelled" && o.status !== "pending")
+        .reduce((sum: number, o: Order) => sum + Number(o.total), 0);
+      const lastOrderDate = userOrders.length > 0 
+        ? userOrders.sort((a: Order, b: Order) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )[0].created_at
+        : null;
+
       return {
         id: user.id,
         email: user.email || null,
@@ -91,6 +125,13 @@ serve(async (req) => {
         display_name: profile?.display_name || null,
         phone: profile?.phone || null,
         avatar_url: profile?.avatar_url || null,
+        // Order statistics
+        total_orders: totalOrders,
+        pending_orders: pendingOrders,
+        completed_orders: completedOrders,
+        total_spent: totalSpent,
+        last_order_date: lastOrderDate,
+        has_purchased: completedOrders > 0,
       };
     });
 
