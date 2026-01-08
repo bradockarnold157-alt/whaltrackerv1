@@ -7,7 +7,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductInsert } from "@/hooks/useProducts";
 import { Star } from "lucide-react";
-
+import { useAdminCategories } from "@/hooks/useCategories";
 interface ProductFormProps {
   formData: ProductInsert;
   setFormData: React.Dispatch<React.SetStateAction<ProductInsert>>;
@@ -28,77 +28,89 @@ const RATING_OPTIONS = [
   { value: "5", label: "5.0" },
 ];
 
-const ProductForm = ({ formData, setFormData, onSubmit, submitLabel }: ProductFormProps) => (
-  <div className="grid gap-4 py-4">
-    <div className="grid gap-2">
-      <Label htmlFor="name">Nome do Produto *</Label>
-      <Input
-        id="name"
-        value={formData.name}
-        onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-        placeholder="Ex: FIFA 25 Ultimate Edition"
-      />
-    </div>
-    <div className="grid gap-2">
-      <Label htmlFor="description">Descrição</Label>
-      <Textarea
-        id="description"
-        value={formData.description}
-        onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-        placeholder="Descrição do produto..."
-      />
-    </div>
-    <div className="grid grid-cols-2 gap-4">
+const ProductForm = ({ formData, setFormData, onSubmit, submitLabel }: ProductFormProps) => {
+  const { categories, loading: categoriesLoading } = useAdminCategories();
+
+  return (
+    <div className="grid gap-4 py-4">
       <div className="grid gap-2">
-        <Label htmlFor="price">Preço *</Label>
+        <Label htmlFor="name">Nome do Produto *</Label>
         <Input
-          id="price"
-          type="number"
-          step="0.01"
-          value={formData.price}
-          onChange={(e) => setFormData((prev) => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+          placeholder="Ex: FIFA 25 Ultimate Edition"
         />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="original_price">Preço Original</Label>
-        <Input
-          id="original_price"
-          type="number"
-          step="0.01"
-          value={formData.original_price || ""}
-          onChange={(e) => setFormData((prev) => ({ ...prev, original_price: parseFloat(e.target.value) || undefined }))}
+        <Label htmlFor="description">Descrição</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+          placeholder="Descrição do produto..."
         />
       </div>
-    </div>
-    <div className="grid gap-2">
-      <Label htmlFor="image">URL da Imagem *</Label>
-      <Input
-        id="image"
-        value={formData.image}
-        onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.value }))}
-        placeholder="https://exemplo.com/imagem.jpg"
-      />
-    </div>
-    <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="price">Preço *</Label>
+          <Input
+            id="price"
+            type="number"
+            step="0.01"
+            value={formData.price}
+            onChange={(e) => setFormData((prev) => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="original_price">Preço Original</Label>
+          <Input
+            id="original_price"
+            type="number"
+            step="0.01"
+            value={formData.original_price || ""}
+            onChange={(e) => setFormData((prev) => ({ ...prev, original_price: parseFloat(e.target.value) || undefined }))}
+          />
+        </div>
+      </div>
       <div className="grid gap-2">
-        <Label htmlFor="category">Categoria *</Label>
+        <Label htmlFor="image">URL da Imagem *</Label>
         <Input
-          id="category"
-          value={formData.category}
-          onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-          placeholder="Ex: Jogos, Assinaturas"
+          id="image"
+          value={formData.image}
+          onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.value }))}
+          placeholder="https://exemplo.com/imagem.jpg"
         />
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor="badge">Badge</Label>
-        <Input
-          id="badge"
-          value={formData.badge || ""}
-          onChange={(e) => setFormData((prev) => ({ ...prev, badge: e.target.value }))}
-          placeholder="Ex: Novo, -30%"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="category">Categoria *</Label>
+          <Select
+            value={formData.category}
+            onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Selecione a categoria"} />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="badge">Badge</Label>
+          <Input
+            id="badge"
+            value={formData.badge || ""}
+            onChange={(e) => setFormData((prev) => ({ ...prev, badge: e.target.value }))}
+            placeholder="Ex: Novo, -30%"
+          />
+        </div>
       </div>
-    </div>
     <div className="grid grid-cols-2 gap-4">
       <div className="grid gap-2">
         <Label className="flex items-center gap-1">
@@ -145,7 +157,8 @@ const ProductForm = ({ formData, setFormData, onSubmit, submitLabel }: ProductFo
         {submitLabel}
       </Button>
     </DialogFooter>
-  </div>
-);
+    </div>
+  );
+};
 
 export default ProductForm;
