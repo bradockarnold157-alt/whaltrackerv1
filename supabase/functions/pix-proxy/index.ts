@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const PIX_API_BASE = "https://mlanonovo.shop/apipix";
@@ -25,6 +26,16 @@ serve(async (req) => {
     const { action, amount, transactionId } = await req.json();
     const normalizedAmount = normalizeAmount(amount);
 
+    const origin = req.headers.get("origin") ?? undefined;
+    const providerHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "User-Agent":
+        req.headers.get("user-agent") ??
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      ...(origin ? { "Origin": origin } : {}),
+    };
+
     if (action === "generate") {
       // The provider occasionally returns transient errors.
       // Retry with exponential backoff to reduce checkout friction.
@@ -37,9 +48,7 @@ serve(async (req) => {
 
         const response = await fetch(`${PIX_API_BASE}/gerar-pagamento.php`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: providerHeaders,
           body: JSON.stringify({
             amount: normalizedAmount,
             client_id: CLIENT_ID,
@@ -57,7 +66,8 @@ serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify(lastData), {
+      return new Response(JSON.stringify(lastData ?? { error: "Erro ao gerar pagamento" }), {
+        status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -65,18 +75,17 @@ serve(async (req) => {
     if (action === "verify") {
       const response = await fetch(`${PIX_API_BASE}/verificar.php?id=${transactionId}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: providerHeaders,
         body: JSON.stringify({
           amount: normalizedAmount,
           client_id: CLIENT_ID,
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       return new Response(JSON.stringify(data), {
+        status: response.ok ? 200 : 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
