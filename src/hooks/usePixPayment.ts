@@ -49,11 +49,11 @@ export const usePixPayment = (): UsePixPaymentReturn => {
         return null;
       }
 
-      if (data?.qrCodeResponse?.transactionId && data?.qrCodeResponse?.qrcode) {
+      if (data?.transactionId && data?.qrcode) {
         const pixData: PixPaymentData = {
-          transactionId: data.qrCodeResponse.transactionId,
-          qrcode: data.qrCodeResponse.qrcode,
-          amount: data.qrCodeResponse.amount,
+          transactionId: data.transactionId,
+          qrcode: data.qrcode,
+          amount: data.amount ?? normalizedAmount,
         };
         setPaymentData(pixData);
         setStatus("PENDING");
