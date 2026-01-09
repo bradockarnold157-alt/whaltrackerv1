@@ -49,7 +49,7 @@ export const usePixPayment = (): UsePixPaymentReturn => {
         return null;
       }
 
-      if (data.qrCodeResponse) {
+      if (data?.qrCodeResponse?.transactionId && data?.qrCodeResponse?.qrcode) {
         const pixData: PixPaymentData = {
           transactionId: data.qrCodeResponse.transactionId,
           qrcode: data.qrCodeResponse.qrcode,
@@ -87,7 +87,7 @@ export const usePixPayment = (): UsePixPaymentReturn => {
         return "PENDING";
       }
 
-      const newStatus = data.status as PixStatus;
+      const newStatus = (data?.status as PixStatus) ?? "PENDING";
       setStatus(newStatus);
       return newStatus;
     } catch (error) {
