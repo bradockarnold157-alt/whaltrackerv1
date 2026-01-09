@@ -1,4 +1,4 @@
-import { ShoppingCart, LogIn, Headphones, Shield } from "lucide-react";
+import { ShoppingCart, LogIn, Wallet, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";

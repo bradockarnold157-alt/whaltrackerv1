@@ -1,25 +1,25 @@
-import { Shield, Zap, HeadphonesIcon, CreditCard } from "lucide-react";
+import { Shield, Zap, Bell, Wallet } from "lucide-react";
 
 const features = [
   {
     icon: Zap,
-    title: "Entrega Instantânea",
-    description: "Receba seu produto em segundos após a confirmação do pagamento.",
+    title: "Alertas Instantâneos",
+    description: "Receba notificações em tempo real quando whales movimentam fundos.",
   },
   {
     icon: Shield,
     title: "100% Seguro",
-    description: "Pagamento processado com criptografia de ponta a ponta.",
+    description: "Seus dados criptografados e nunca compartilhados com terceiros.",
   },
   {
-    icon: HeadphonesIcon,
-    title: "Suporte 24/7",
-    description: "Nossa equipe está sempre disponível para ajudar você.",
+    icon: Bell,
+    title: "Monitoramento 24/7",
+    description: "Rastreie wallets automaticamente, mesmo enquanto você dorme.",
   },
   {
-    icon: CreditCard,
-    title: "Pagamento Fácil",
-    description: "PIX, cartão de crédito, boleto e muito mais.",
+    icon: Wallet,
+    title: "Multi-Chain",
+    description: "Suporte para Ethereum, BSC, Solana, Polygon e mais.",
   },
 ];
 
