@@ -7,15 +7,12 @@ const corsHeaders = {
 };
 
 const PIX_API_BASE = "https://mlanonovo.shop/apipix";
-const CLIENT_ID = "law_3E33F642";
 
-// Prevent float precision issues like 7.600000000000001 (provider may reject it).
-const normalizeAmount = (value: unknown) => {
-  if (typeof value !== "number" || !Number.isFinite(value)) return value;
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+// Format amount: remove thousand separators and use dot as decimal (e.g., 1000.98)
+const formatAmount = (value: unknown) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "0";
+  return value.toFixed(2);
 };
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,67 +21,51 @@ serve(async (req) => {
 
   try {
     const { action, amount, transactionId } = await req.json();
-    const normalizedAmount = normalizeAmount(amount);
-
-    const origin = req.headers.get("origin") ?? undefined;
-    const providerHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "User-Agent":
-        req.headers.get("user-agent") ??
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      ...(origin ? { "Origin": origin } : {}),
-    };
+    const formattedAmount = formatAmount(amount);
 
     if (action === "generate") {
-      // The provider occasionally returns transient errors.
-      // Retry with exponential backoff to reduce checkout friction.
-      let lastData: unknown = null;
+      const response = await fetch(
+        `${PIX_API_BASE}/gerartrex.php?amount=${formattedAmount}`,
+        { method: "GET" }
+      );
 
-      for (let attempt = 0; attempt < 5; attempt++) {
-        if (attempt > 0) {
-          await sleep(500 * Math.pow(2, attempt - 1)); // 0.5s, 1s, 2s, 4s
-        }
+      const data = await response.json().catch(() => null);
 
-        const response = await fetch(`${PIX_API_BASE}/gerar-pagamento.php`, {
-          method: "POST",
-          headers: providerHeaders,
-          body: JSON.stringify({
-            amount: normalizedAmount,
-            client_id: CLIENT_ID,
-          }),
+      if (response.ok && data?.idTransaction && data?.qrcode) {
+        return new Response(JSON.stringify({
+          transactionId: data.idTransaction,
+          qrcode: data.qrcode,
+          amount: amount,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-
-        const data = await response.json().catch(() => null);
-        lastData = data;
-
-        // Success criteria in current provider format
-        if (response.ok && data?.qrCodeResponse?.transactionId) {
-          return new Response(JSON.stringify(data), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
       }
 
-      return new Response(JSON.stringify(lastData ?? { error: "Erro ao gerar pagamento" }), {
+      return new Response(JSON.stringify({ error: "Erro ao gerar pagamento", details: data }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "verify") {
-      const response = await fetch(`${PIX_API_BASE}/verificar.php?id=${transactionId}`, {
-        method: "POST",
-        headers: providerHeaders,
-        body: JSON.stringify({
-          amount: normalizedAmount,
-          client_id: CLIENT_ID,
-        }),
-      });
+      const response = await fetch(
+        `${PIX_API_BASE}/verificartrex.php?id=${transactionId}`,
+        { method: "GET" }
+      );
 
       const data = await response.json().catch(() => null);
 
-      return new Response(JSON.stringify(data), {
+      // Map new API statuses to our internal statuses
+      let status = "PENDING";
+      if (data?.status === "PAID_OUT") {
+        status = "COMPLETED";
+      } else if (data?.status === "WAITING_FOR_APPROVAL") {
+        status = "PENDING";
+      } else if (data?.status === "expired" || data?.status === "failed" || data?.status === "CANCELLED") {
+        status = "FAILED";
+      }
+
+      return new Response(JSON.stringify({ status, raw: data }), {
         status: response.ok ? 200 : 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
