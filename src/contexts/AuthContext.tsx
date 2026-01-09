@@ -111,10 +111,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error("Não autenticado") };
 
+    // Use upsert to create profile if it doesn't exist
     const { error } = await supabase
       .from("profiles")
-      .update(updates)
-      .eq("user_id", user.id);
+      .upsert(
+        {
+          user_id: user.id,
+          ...updates,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'user_id',
+        }
+      );
 
     if (!error) {
       await refreshProfile();
