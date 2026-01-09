@@ -16,9 +16,8 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Headphones className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold">
-              Digital<span className="text-gradient">Store</span>
+              WHALE<span className="text-gradient">TRACKER</span>
             </span>
           </div>
         </Link>
